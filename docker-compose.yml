@@ -1,0 +1,31 @@
+services:
+  wiseminioservices:
+    image: minio/minio:latest
+    container_name: hackathon-minio
+    ports:
+      - "${MINIO_S3_PORT:-7545}:9000"    # S3 API
+      - "${MINIO_CONSOLE_PORT:-7546}:9001"    # Web UI
+    volumes:
+      - ./minio_data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server --console-address ":9001" /data
+
+
+  postgres:
+    image: postgres:16.1
+    container_name: hackathon-pg
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/docker_postgres_init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "${POSTGRES_PORT:-55432}:5432"
+
+volumes:
+  pg_data:
