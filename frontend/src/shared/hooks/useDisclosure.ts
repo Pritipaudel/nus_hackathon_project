@@ -1,11 +1,6 @@
 import { useState, useCallback } from 'react';
 
-interface UseDisclosureReturn {
-  isOpen: boolean;
-  open: () => void;
-  close: () => void;
-  toggle: () => void;
-}
+import type { UseDisclosureReturn } from '@shared/types';
 
 export const useDisclosure = (initialState = false): UseDisclosureReturn => {
   const [isOpen, setIsOpen] = useState(initialState);

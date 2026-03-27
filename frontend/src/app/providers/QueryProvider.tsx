@@ -1,19 +1,15 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 import { env } from '@shared/lib/env';
-
-interface QueryProviderProps {
-  children: ReactNode;
-}
+import type { QueryProviderProps } from '@shared/types';
 
 const makeQueryClient = (): QueryClient =>
   new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,
+        staleTime: 60 * 1_000,
         retry: (failureCount, error) => {
           if (error instanceof Error && 'status' in error) {
             const status = (error as Error & { status: number }).status;

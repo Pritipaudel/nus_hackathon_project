@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
 
+import type { UseLocalStorageReturn } from '@shared/types';
+
 export const useLocalStorage = <T>(
   key: string,
   initialValue: T,
-): [T, (value: T | ((prev: T) => T)) => void, () => void] => {
+): UseLocalStorageReturn<T> => {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);

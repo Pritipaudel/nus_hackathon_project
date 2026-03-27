@@ -1,4 +1,4 @@
-import { Environment } from "@shared/types/interface/environment.interface";
+import type { EnvConfig, Environment } from '@shared/types';
 
 const required = (key: string): string => {
   const value = import.meta.env[key];
@@ -8,10 +8,10 @@ const required = (key: string): string => {
   return value as string;
 };
 
-export const env = {
+export const env: EnvConfig = {
   apiBaseUrl: required('VITE_API_BASE_URL'),
   appName: required('VITE_APP_NAME'),
   appEnv: (import.meta.env['VITE_APP_ENV'] ?? 'development') as Environment,
-  isDev: import.meta.env.DEV,
-  isProd: import.meta.env.PROD,
-} as const;
+  isDev: import.meta.env.DEV as boolean,
+  isProd: import.meta.env.PROD as boolean,
+};
