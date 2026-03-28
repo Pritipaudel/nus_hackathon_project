@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from backend.models.user import User, UserRole
+from backend.models.user import DEFAULT_USER_ROLE, User, UserRole
 
 
 class UserRepository:
@@ -19,7 +19,7 @@ class UserRepository:
         first_name: str,
         last_name: str,
         hashed_password: str,
-        role: UserRole = UserRole.USER_PATIENT,
+        role: UserRole = DEFAULT_USER_ROLE,
     ) -> User:
         is_patient = role == UserRole.USER_PATIENT
         user = User(
@@ -28,7 +28,7 @@ class UserRepository:
             last_name=last_name,
             hashed_password=hashed_password,
             role=role,
-            is_onboarded=not is_patient,
+            is_onboarded=False,
         )
         self.db.add(user)
         self.db.commit()
