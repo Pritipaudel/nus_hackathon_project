@@ -4,6 +4,7 @@ import { useAuthStore } from '@shared/stores/authStore';
 
 import { useMe } from '@features/auth/hooks/useMe';
 import IcbtPage from '@features/icbt/pages/IcbtPage';
+import CommunityPage from '@features/community/pages/CommunityPage';
 
 type Section = 'home' | 'programs' | 'community' | 'workers' | 'meetings';
 
@@ -229,36 +230,7 @@ const DashboardPage = () => {
 
         {section === 'programs' && <IcbtPage />}
 
-        {section === 'community' && (
-          <div className="ds-section">
-            <div className="ds-page-header">
-              <h1>Community</h1>
-              <p>Anonymous peer support. Read, share, and connect.</p>
-            </div>
-            <div className="ds-post-list">
-              {MOCK_POSTS.map((post) => (
-                <div key={post.id} className="ds-post">
-                  <div className="ds-post__header">
-                    <div className="ds-post__author">
-                      <span className="ds-post__avatar">{post.username[0].toUpperCase()}</span>
-                      <span className="ds-post__username">{post.username}</span>
-                      {post.is_verified && <span className="ds-badge ds-badge--green">Verified</span>}
-                    </div>
-                    <span className="ds-badge ds-badge--outline">{post.category}</span>
-                  </div>
-                  <p className="ds-post__content">{post.content}</p>
-                  <div className="ds-post__footer">
-                    <span className="ds-post__time">{formatDate(post.created_at)}</span>
-                    <div className="ds-post__actions">
-                      <button type="button" className="btn btn-ghost btn-sm">Support</button>
-                      <button type="button" className="btn btn-ghost btn-sm">Flag</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {section === 'community' && <CommunityPage />}
 
         {section === 'workers' && (
           <div className="ds-section">
