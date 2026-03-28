@@ -11,6 +11,8 @@ from alembic import context
 
 from backend.core.database import Base
 import backend.models.user  # noqa: F401 — register model with Base metadata
+import backend.models.icbt  # noqa: F401 — register model with Base metadata
+import backend.models.community  # noqa: F401 — register model with Base metadata
 
 
 # this is the Alembic Config object, which provides
