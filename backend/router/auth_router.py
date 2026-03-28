@@ -37,12 +37,13 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
         first_name=body.first_name,
         last_name=body.last_name,
         hashed_password=hash_password(body.password),
+        role=body.role,
     )
     token = create_access_token(str(user.id))
     return AuthResponse(
         user=UserResponse.model_validate(user),
         tokens=TokenResponse(access_token=token),
-        is_first_login=True,
+        is_first_login=not user.is_onboarded,
     )
 
 

@@ -3,12 +3,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr
 
+from backend.models.user import UserRole
+
 
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str
     first_name: str
     last_name: str
+    role: UserRole = UserRole.USER_PATIENT
 
 
 class LoginRequest(BaseModel):
@@ -28,6 +31,7 @@ class UserResponse(BaseModel):
     last_name: str
     is_active: bool
     is_onboarded: bool
+    role: UserRole
     created_at: datetime
 
     model_config = {"from_attributes": True}

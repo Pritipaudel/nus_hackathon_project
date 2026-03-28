@@ -15,7 +15,16 @@ export type {
   OnboardingResponse,
   UserProfile,
 } from './api';
-export type { User, TokenResponse, AuthResponse, LoginRequest, SignupRequest } from './auth';
+export type { User, UserRole, TokenResponse, AuthResponse, LoginRequest, SignupRequest } from './auth';
+export type {
+  WorkerDashboardSection,
+  PatientMoodEntry,
+  PatientWeeklyProgress,
+  PatientPost,
+  PatientNote,
+  WorkerPatient,
+  WorkerOverviewStat,
+} from './worker';
 export type { Environment, EnvConfig } from './env';
 export type { HealthStatus, HealthResponse } from './health';
 export type { UseDisclosureReturn, UseLocalStorageReturn } from './hooks';

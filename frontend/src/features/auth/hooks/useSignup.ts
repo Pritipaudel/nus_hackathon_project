@@ -11,9 +11,10 @@ export const useSignup = () => {
   return useMutation({
     mutationFn: (body: SignupRequest) => authApi.signup(body),
     onSuccess: (_, variables) => {
-      navigate(`/login?registered=true&email=${encodeURIComponent(variables.email)}`, {
-        replace: true,
-      });
+      navigate(
+        `/login?registered=true&email=${encodeURIComponent(variables.email)}`,
+        { replace: true },
+      );
     },
   });
 };

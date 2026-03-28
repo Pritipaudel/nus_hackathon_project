@@ -3,9 +3,11 @@ import { useRef, useState } from 'react';
 import {
   COMMUNITY_CATEGORIES,
   COMMUNITY_CATEGORY_COLORS,
+  COMMUNITY_MOCK_COMMENTS,
   COMMUNITY_MOCK_POSTS,
   COMMUNITY_MOCK_TRENDING,
 } from '@shared/constants';
+import type { MockComment } from '@shared/constants/community';
 
 const timeAgo = (iso: string): string => {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -14,6 +16,10 @@ const timeAgo = (iso: string): string => {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 };
+
+interface PostComment extends MockComment {
+  isOwn?: boolean;
+}
 
 const CommunityPage = () => {
   const [activeCategory, setActiveCategory] = useState('ALL');
@@ -32,6 +38,20 @@ const CommunityPage = () => {
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [comments, setComments] = useState<Record<string, PostComment[]>>(
+    Object.fromEntries(
+      Object.entries(COMMUNITY_MOCK_COMMENTS).map(([k, v]) => [k, v]),
+    ),
+  );
+  const [commentLikes, setCommentLikes] = useState<Record<string, number>>(
+    Object.fromEntries(
+      Object.values(COMMUNITY_MOCK_COMMENTS).flat().map((c) => [c.id, c.likes]),
+    ),
+  );
+  const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
 
   const filtered = posts.filter(
     (p) => activeCategory === 'ALL' || p.category === activeCategory,
@@ -53,6 +73,47 @@ const CommunityPage = () => {
       });
       return { ...prev, [postId]: next };
     });
+  };
+
+  const toggleComments = (postId: string) => {
+    setExpandedComments((prev) => {
+      const next = new Set(prev);
+      if (next.has(postId)) next.delete(postId);
+      else next.add(postId);
+      return next;
+    });
+  };
+
+  const handleLikeComment = (commentId: string) => {
+    setLikedComments((prev) => {
+      const next = new Set(prev);
+      if (next.has(commentId)) {
+        next.delete(commentId);
+        setCommentLikes((l) => ({ ...l, [commentId]: (l[commentId] ?? 1) - 1 }));
+      } else {
+        next.add(commentId);
+        setCommentLikes((l) => ({ ...l, [commentId]: (l[commentId] ?? 0) + 1 }));
+      }
+      return next;
+    });
+  };
+
+  const handleAddComment = (postId: string) => {
+    const text = replyText[postId]?.trim();
+    if (!text) return;
+    const newComment: PostComment = {
+      id: `c${Date.now()}`,
+      author: 'You',
+      initials: 'Y',
+      isVerified: false,
+      text,
+      time: 'Just now',
+      likes: 0,
+      isOwn: true,
+    };
+    setComments((prev) => ({ ...prev, [postId]: [...(prev[postId] ?? []), newComment] }));
+    setCommentLikes((l) => ({ ...l, [newComment.id]: 0 }));
+    setReplyText((r) => ({ ...r, [postId]: '' }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,6 +141,7 @@ const CommunityPage = () => {
       setPosts((prev) => [newPost, ...prev]);
       setCounts((c) => ({ ...c, [newPost.id]: 0 }));
       setVotes((v) => ({ ...v, [newPost.id]: null }));
+      setComments((c) => ({ ...c, [newPost.id]: [] }));
       setContent('');
       setCategory('GENERAL');
       setFile(null);
@@ -130,9 +192,7 @@ const CommunityPage = () => {
                 </svg>
               </button>
             </div>
-
             <p className="cp-compose__anon">You are posting anonymously — your identity is never shared.</p>
-
             <textarea
               className="cp-compose__textarea"
               placeholder="Share your experience, ask a question, or offer support..."
@@ -142,7 +202,6 @@ const CommunityPage = () => {
               maxLength={1000}
               autoFocus
             />
-
             {preview && (
               <div className="cp-compose__preview">
                 <img src={preview} alt="preview" className="cp-compose__preview-img" />
@@ -153,7 +212,6 @@ const CommunityPage = () => {
                 </button>
               </div>
             )}
-
             <div className="cp-compose__footer">
               <div className="cp-compose__left">
                 <button type="button" className="cp-compose__icon-btn" onClick={() => fileRef.current?.click()}>
@@ -198,102 +256,169 @@ const CommunityPage = () => {
           {filtered.length === 0 && (
             <div className="cp-empty">No posts in this category yet.</div>
           )}
-          {filtered.map((post) => (
-            <div key={post.id} className="cp-post">
-              <div className="cp-post__vote-col">
-                <button
-                  type="button"
-                  className={`cp-vote-arrow ${votes[post.id] === 'up' ? 'cp-vote-arrow--up' : ''}`}
-                  onClick={() => handleVote(post.id, 'up')}
-                  title="Upvote"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill={votes[post.id] === 'up' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="18 15 12 9 6 15" />
-                  </svg>
-                </button>
-                <span className={`cp-vote-count ${votes[post.id] === 'up' ? 'cp-vote-count--up' : votes[post.id] === 'down' ? 'cp-vote-count--down' : ''}`}>
-                  {counts[post.id] ?? 0}
-                </span>
-                <button
-                  type="button"
-                  className={`cp-vote-arrow ${votes[post.id] === 'down' ? 'cp-vote-arrow--down' : ''}`}
-                  onClick={() => handleVote(post.id, 'down')}
-                  title="Downvote"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill={votes[post.id] === 'down' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-              </div>
+          {filtered.map((post) => {
+            const postComments = comments[post.id] ?? [];
+            const isExpanded = expandedComments.has(post.id);
 
-              <div className="cp-post__body">
-                <div className="cp-post__header">
-                  <div className="cp-post__author-row">
-                    <div className="cp-post__avatar">{post.username[0].toUpperCase()}</div>
-                    <span className="cp-post__username">{post.username}</span>
-                    {post.is_verified && (
-                      <span className="cp-post__verified">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Health worker
-                      </span>
-                    )}
-                    <span className="cp-post__dot">·</span>
-                    <span className="cp-post__time">{timeAgo(post.created_at)}</span>
-                  </div>
-                  <span className={`cp-cat-tag ${COMMUNITY_CATEGORY_COLORS[post.category] ?? 'cp-cat--gray'}`}>
-                    {post.category.charAt(0) + post.category.slice(1).toLowerCase()}
+            return (
+              <div key={post.id} className="cp-post">
+                <div className="cp-post__vote-col">
+                  <button
+                    type="button"
+                    className={`cp-vote-arrow ${votes[post.id] === 'up' ? 'cp-vote-arrow--up' : ''}`}
+                    onClick={() => handleVote(post.id, 'up')}
+                    title="Upvote"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill={votes[post.id] === 'up' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="18 15 12 9 6 15" />
+                    </svg>
+                  </button>
+                  <span className={`cp-vote-count ${votes[post.id] === 'up' ? 'cp-vote-count--up' : votes[post.id] === 'down' ? 'cp-vote-count--down' : ''}`}>
+                    {counts[post.id] ?? 0}
                   </span>
+                  <button
+                    type="button"
+                    className={`cp-vote-arrow ${votes[post.id] === 'down' ? 'cp-vote-arrow--down' : ''}`}
+                    onClick={() => handleVote(post.id, 'down')}
+                    title="Downvote"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill={votes[post.id] === 'down' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
                 </div>
 
-                <p className="cp-post__content">{post.content}</p>
-
-                {post.media_urls.length > 0 && (
-                  <div className="cp-post__media">
-                    <img
-                      src={post.media_urls[0]}
-                      alt="post"
-                      className="cp-post__img"
-                      loading="lazy"
-                    />
+                <div className="cp-post__body">
+                  <div className="cp-post__header">
+                    <div className="cp-post__author-row">
+                      <div className="cp-post__avatar">{(post.username[0] ?? '?').toUpperCase()}</div>
+                      <span className="cp-post__username">{post.username}</span>
+                      {post.is_verified && (
+                        <span className="cp-post__verified">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Health worker
+                        </span>
+                      )}
+                      <span className="cp-post__dot">·</span>
+                      <span className="cp-post__time">{timeAgo(post.created_at)}</span>
+                    </div>
+                    <span className={`cp-cat-tag ${COMMUNITY_CATEGORY_COLORS[post.category] ?? 'cp-cat--gray'}`}>
+                      {post.category.charAt(0) + post.category.slice(1).toLowerCase()}
+                    </span>
                   </div>
-                )}
 
-                <div className="cp-post__action-bar">
-                  <button type="button" className="cp-action">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    {post.comments} Comments
-                  </button>
-                  <button type="button" className="cp-action">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                    </svg>
-                    Share
-                  </button>
-                  <button type="button" className="cp-action">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                    </svg>
-                    Save
-                  </button>
-                  {!flagged.has(post.id) ? (
-                    <button type="button" className="cp-action cp-action--flag" onClick={() => setFlagged((p) => new Set([...p, post.id]))}>
+                  <p className="cp-post__content">{post.content}</p>
+
+                  {post.media_urls.length > 0 && (
+                    <div className="cp-post__media">
+                      <img src={post.media_urls[0]} alt="post" className="cp-post__img" loading="lazy" />
+                    </div>
+                  )}
+
+                  <div className="cp-post__action-bar">
+                    <button
+                      type="button"
+                      className={`cp-action ${isExpanded ? 'cp-action--active' : ''}`}
+                      onClick={() => toggleComments(post.id)}
+                    >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" />
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                       </svg>
-                      Flag
+                      {postComments.length} {postComments.length === 1 ? 'Comment' : 'Comments'}
                     </button>
-                  ) : (
-                    <span className="cp-action cp-action--flagged">Flagged</span>
+                    <button type="button" className="cp-action">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                      </svg>
+                      Share
+                    </button>
+                    <button type="button" className="cp-action">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                      </svg>
+                      Save
+                    </button>
+                    {!flagged.has(post.id) ? (
+                      <button type="button" className="cp-action cp-action--flag" onClick={() => setFlagged((p) => new Set([...p, post.id]))}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" />
+                        </svg>
+                        Flag
+                      </button>
+                    ) : (
+                      <span className="cp-action cp-action--flagged">Flagged</span>
+                    )}
+                  </div>
+
+                  {isExpanded && (
+                    <div className="cp-comments">
+                      {postComments.map((c) => (
+                        <div key={c.id} className={`cp-comment ${c.isOwn ? 'cp-comment--own' : ''}`}>
+                          <div className={`cp-comment__avatar ${c.isVerified ? 'cp-comment__avatar--verified' : ''}`}>
+                            {c.initials}
+                          </div>
+                          <div className="cp-comment__body">
+                            <div className="cp-comment__header">
+                              <span className="cp-comment__author">{c.author}</span>
+                              {c.isVerified && (
+                                <span className="cp-comment__verified-badge">
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Health worker
+                                </span>
+                              )}
+                              <span className="cp-comment__time">{c.time}</span>
+                            </div>
+                            <p className="cp-comment__text">{c.text}</p>
+                            <button
+                              type="button"
+                              className={`cp-comment__like-btn ${likedComments.has(c.id) ? 'cp-comment__like-btn--active' : ''}`}
+                              onClick={() => handleLikeComment(c.id)}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill={likedComments.has(c.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                              </svg>
+                              {commentLikes[c.id] ?? c.likes}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="cp-comment-compose">
+                        <div className="cp-comment__avatar cp-comment__avatar--you">Y</div>
+                        <div className="cp-comment-compose__input-wrap">
+                          <input
+                            className="cp-comment-compose__input"
+                            type="text"
+                            placeholder="Write a comment..."
+                            value={replyText[post.id] ?? ''}
+                            onChange={(e) => setReplyText((r) => ({ ...r, [post.id]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleAddComment(post.id);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="cp-comment-compose__send"
+                            disabled={!(replyText[post.id] ?? '').trim()}
+                            onClick={() => handleAddComment(post.id)}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 
-import type { SignupRequest } from '@shared/types';
+import type { SignupRequest, UserRole } from '@shared/types';
 
 import { useSignup } from '../hooks/useSignup';
 
@@ -14,10 +14,13 @@ const SignupPage = () => {
     password: '',
     first_name: '',
     last_name: '',
+    role: 'USER_PATIENT',
   });
 
   const set = (field: keyof SignupRequest) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+
+  const setRole = (role: UserRole) => setForm((prev) => ({ ...prev, role }));
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -53,9 +56,7 @@ const SignupPage = () => {
           <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <div className="auth-form__row">
               <div className="input-wrapper">
-                <label className="input-label" htmlFor="first_name">
-                  First name
-                </label>
+                <label className="input-label" htmlFor="first_name">First name</label>
                 <div className="input-container">
                   <input
                     id="first_name"
@@ -71,9 +72,7 @@ const SignupPage = () => {
               </div>
 
               <div className="input-wrapper">
-                <label className="input-label" htmlFor="last_name">
-                  Last name
-                </label>
+                <label className="input-label" htmlFor="last_name">Last name</label>
                 <div className="input-container">
                   <input
                     id="last_name"
@@ -90,9 +89,7 @@ const SignupPage = () => {
             </div>
 
             <div className="input-wrapper">
-              <label className="input-label" htmlFor="email">
-                Email address
-              </label>
+              <label className="input-label" htmlFor="email">Email address</label>
               <div className="input-container">
                 <input
                   id="email"
@@ -108,9 +105,7 @@ const SignupPage = () => {
             </div>
 
             <div className="input-wrapper">
-              <label className="input-label" htmlFor="password">
-                Password
-              </label>
+              <label className="input-label" htmlFor="password">Password</label>
               <div className="input-container">
                 <input
                   id="password"
@@ -122,6 +117,54 @@ const SignupPage = () => {
                   autoComplete="new-password"
                   required
                 />
+              </div>
+            </div>
+
+            <div className="input-wrapper">
+              <label className="input-label">I am joining as</label>
+              <div className="role-selector">
+                <button
+                  type="button"
+                  className={`role-option ${form.role === 'USER_PATIENT' ? 'role-option--active' : ''}`}
+                  onClick={() => setRole('USER_PATIENT')}
+                >
+                  <span className="role-option__icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </span>
+                  <div className="role-option__body">
+                    <span className="role-option__title">Patient</span>
+                    <span className="role-option__desc">Access iCBT programmes and community support</span>
+                  </div>
+                  <span className="role-option__check">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`role-option ${form.role === 'USER_HEALTH_WORKER' ? 'role-option--active' : ''}`}
+                  onClick={() => setRole('USER_HEALTH_WORKER')}
+                >
+                  <span className="role-option__icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                    </svg>
+                  </span>
+                  <div className="role-option__body">
+                    <span className="role-option__title">Health Worker</span>
+                    <span className="role-option__desc">Manage patients, meetings, and community oversight</span>
+                  </div>
+                  <span className="role-option__check">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </span>
+                </button>
               </div>
             </div>
 
