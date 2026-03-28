@@ -155,12 +155,25 @@ Get pre-signed URL for upload.
 
 # 🧠 ICBT
 
-## GET `/icbt/programs`
+Frontend integration notes:
 
-List all ICBT programs.
+- Date fields are ISO-8601 datetime strings in UTC.
+- `status` is either `ACTIVE` or `COMPLETED`.
+- For protected ICBT APIs, send `Authorization: Bearer <access_token>`.
+- `community_metadata` can be an empty array when a program has no mapped communities yet.
+
+## GET `/icbt/list`
+
+List ICBT programs with optional community filter and aggregated community stats.
+
+Auth: Not required.
+
+**Query Params (optional)**
+
+- `community_id=uuid`
 
 **Response**
-if it can be used to view link preview cards that will be best.
+
 ```json
 [
   {
@@ -168,23 +181,53 @@ if it can be used to view link preview cards that will be best.
     "title": "string",
     "description": "string",
     "difficulty_level": "string",
-    "duration_days": 30
-    "url":"url"
+    "duration_days": 30,
+    "url": "url",
+    "community_metadata": [
+      {
+        "community_id": "uuid",
+        "community_name": "string",
+        "community_group_type": "RELIGION",
+        "total_users_using": 12,
+        "total_users_completed": 8,
+        "total_users_in_progress": 4
+      }
+    ]
   }
 ]
 ```
+
+Possible errors:
+
+- `404` when `community_id` does not exist.
+
+---
+
+## GET `/icbt/programs`
+
+Backward-compatible alias of `/icbt/list`.
+
+Auth: Not required.
 
 ---
 
 ## POST `/icbt/enroll`
 
-Enroll in a program.
+Enroll current user into an ICBT program.
+
+Auth: Required.
+
+Notes:
+
+- `community_id` is optional.
+- If provided, it must be already mapped to that program.
 
 **Request**
 
 ```json
 {
-  "program_id": "uuid"
+  "program_id": "uuid",
+  "community_id": "uuid (optional)"
 }
 ```
 
@@ -193,41 +236,125 @@ Enroll in a program.
 ```json
 {
   "enrollment_id": "uuid",
-  "status": "ACTIVE"
+  "status": "ACTIVE",
+  "program_id": "uuid",
+  "progress_percent": 0,
+  "community_id": "uuid|null"
 }
 ```
+
+Possible errors:
+
+- `404` when program/community/user is not found.
+- `409` when user is already enrolled in the program.
+- `400` when community is not mapped to the given program.
+
+---
+
+## PUT `/icbt/programs/{program_id}/communities`
+
+Assign focused communities to an ICBT program (supports multiple communities).
+
+Auth: Required.
+
+Notes:
+
+- This endpoint replaces existing community mappings for the program.
+- Use this before allowing community-specific enrollments.
+
+**Request**
+
+```json
+{
+  "community_ids": ["uuid", "uuid"]
+}
+```
+
+**Response**
+
+```json
+{
+  "program_id": "uuid",
+  "community_ids": ["uuid", "uuid"]
+}
+```
+
+Possible errors:
+
+- `404` when program or any community is not found.
 
 ---
 
 ## GET `/icbt/my-programs`
 
-Get user enrolled programs.
+Get current user enrolled programs and individual progress.
+
+Auth: Required.
 
 **Response**
 
 ```json
 [
   {
+    "enrollment_id": "uuid",
     "program_id": "uuid",
+    "title": "string",
+    "description": "string|null",
+    "difficulty_level": "string|null",
+    "duration_days": 30,
+    "url": "string|null",
     "status": "ACTIVE",
-    "progress_percent": 40
+    "progress_percent": 40,
+    "community_id": "uuid|null",
+    "community_name": "string|null",
+    "started_at": "datetime",
+    "last_activity_at": "datetime",
+    "completed_at": "datetime|null"
   }
 ]
 ```
 
+Possible errors:
+
+- `401` when token is missing/invalid.
+
 ---
 
-## POST `/icbt/modules/{module_id}/complete`
+## PATCH `/icbt/programs/{program_id}/progress`
 
-Mark module as completed.
+Update user progress in a specific ICBT program (0-100).
+
+Auth: Required.
+
+Notes:
+
+- `progress_percent = 100` marks program `COMPLETED`.
+- Any value `< 100` keeps/sets status as `ACTIVE`.
+
+**Request**
+
+```json
+{
+  "progress_percent": 75
+}
+```
 
 **Response**
 
 ```json
 {
-  "status": "completed"
+  "enrollment_id": "uuid",
+  "program_id": "uuid",
+  "status": "ACTIVE|COMPLETED",
+  "progress_percent": 75,
+  "completed_at": "datetime|null"
 }
 ```
+
+Possible errors:
+
+- `404` when user has no enrollment for that program.
+- `422` when `progress_percent` is outside `0..100`.
 
 ---
 
