@@ -136,22 +136,3 @@ class UserICBTProgramProgress(Base):
         Index("idx_user_icbt_progress_program", "program_id"),
         Index("idx_user_icbt_progress_community", "community_group_id"),
     )
-
-class ICBTEnrollment(Base):
-    __tablename__ = "icbt_enrollments"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    program_id = Column(UUID(as_uuid=True), ForeignKey("icbt_programs.id"), nullable=False, index=True)
-    status = Column(String(50), nullable=False, default="ACTIVE")
-    progress_percent = Column(Integer, nullable=False, default=0)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-
-class ICBTModuleProgress(Base):
-    __tablename__ = "icbt_module_progress"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    module_id = Column(String(255), nullable=False, index=True)
-    status = Column(String(50), nullable=False, default="completed")
-    completed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
