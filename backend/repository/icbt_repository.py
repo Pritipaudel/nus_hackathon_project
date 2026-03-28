@@ -53,6 +53,27 @@ class ICBTRepository:
             .first()
         )
 
+    def ensure_program_community_link(
+        self,
+        program_id: uuid.UUID,
+        community_id: uuid.UUID,
+    ) -> ICBTProgramCommunity:
+        mapping = self.get_program_community_link(
+            program_id=program_id,
+            community_id=community_id,
+        )
+        if mapping is not None:
+            return mapping
+
+        mapping = ICBTProgramCommunity(
+            program_id=program_id,
+            community_group_id=community_id,
+        )
+        self.db.add(mapping)
+        self.db.commit()
+        self.db.refresh(mapping)
+        return mapping
+
     def list_programs(self, community_id: uuid.UUID | None = None) -> list[ICBTProgram]:
         query = self.db.query(ICBTProgram)
         if community_id is not None:
