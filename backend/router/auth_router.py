@@ -9,12 +9,16 @@ from backend.repository.user_repository import UserRepository
 from backend.schema.auth import (
     AuthResponse,
     LoginRequest,
+    OnboardHealthWorkerRequest,
+    OnboardHealthWorkerResponse,
+    OnboardedHealthWorkerResponse,
     SignupRequest,
     TokenResponse,
     UserResponse,
 )
 from backend.services.auth_service import (
     authenticate_user,
+    onboard_health_worker,
     create_access_token,
     hash_password,
 )
@@ -37,8 +41,9 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
         first_name=body.first_name,
         last_name=body.last_name,
         hashed_password=hash_password(body.password),
+        role=body.role,
     )
-    token = create_access_token(str(user.id))
+    token = create_access_token(str(user.id), role=user.role)
     return AuthResponse(
         user=UserResponse.model_validate(user),
         tokens=TokenResponse(access_token=token),
@@ -57,7 +62,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
         ) from exc
-    token = create_access_token(str(user.id))
+    token = create_access_token(str(user.id), role=user.role)
     return AuthResponse(
         user=UserResponse.model_validate(user),
         tokens=TokenResponse(access_token=token),
@@ -81,7 +86,7 @@ def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
-    token = create_access_token(str(user.id))
+    token = create_access_token(str(user.id), role=user.role)
     return TokenResponse(access_token=token)
 
 
@@ -103,3 +108,38 @@ def complete_onboarding(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     return UserResponse.model_validate(updated)
+
+
+@auth_router.post(
+    "/onboard-health-workers",
+    response_model=OnboardHealthWorkerResponse,
+)
+def onboard_health_workers(
+    body: OnboardHealthWorkerRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    updated_user, health_worker = onboard_health_worker(
+        db=db,
+        current_user=current_user,
+        username=body.username,
+        organization=body.organization,
+        community_id=body.community_id,
+    )
+    token = create_access_token(str(updated_user.id), role=updated_user.role)
+    return OnboardHealthWorkerResponse(
+        user=UserResponse.model_validate(updated_user),
+        health_worker=OnboardedHealthWorkerResponse(
+            id=health_worker.id,
+            username=health_worker.username,
+            organization=health_worker.organization,
+            community_id=health_worker.community_id,
+            community_name=(
+                health_worker.community_group.value
+                if health_worker.community_group
+                else None
+            ),
+            is_verified=health_worker.is_verified,
+        ),
+        tokens=TokenResponse(access_token=token),
+    )

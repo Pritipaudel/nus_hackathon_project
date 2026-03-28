@@ -16,7 +16,7 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     try:
-        user_id = decode_access_token(token)
+        user_id, _role = decode_access_token(token)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -39,7 +39,7 @@ def get_current_user_from_token(
     db: Session = Depends(get_db),
 ) -> User:
     try:
-        user_id = decode_access_token(token)
+        user_id, _role = decode_access_token(token)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
