@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.models.community import (
     CommunityGroup,
@@ -219,7 +219,7 @@ class CommunityRepository:
 
         rows = (
             self.db.query(CommunityPost, trend_score)
-            .options(joinedload(CommunityPost.community_group))
+            .options(selectinload(CommunityPost.community_group))
             .outerjoin(
                 CommunityPostReaction, CommunityPostReaction.post_id == CommunityPost.id
             )

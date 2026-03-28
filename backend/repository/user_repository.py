@@ -21,7 +21,6 @@ class UserRepository:
         hashed_password: str,
         role: UserRole = DEFAULT_USER_ROLE,
     ) -> User:
-        is_patient = role == UserRole.USER_PATIENT
         user = User(
             email=email,
             first_name=first_name,

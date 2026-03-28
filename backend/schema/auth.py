@@ -5,8 +5,6 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from backend.models.user import DEFAULT_USER_ROLE, UserRole
 
-from backend.models.user import UserRole
-
 
 class SignupRequest(BaseModel):
     email: EmailStr
@@ -34,7 +32,6 @@ class UserResponse(BaseModel):
     role: UserRole
     is_active: bool
     is_onboarded: bool
-    role: UserRole
     created_at: datetime
 
     model_config = {"from_attributes": True}

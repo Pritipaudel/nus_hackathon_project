@@ -1,10 +1,9 @@
-import enum
 import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
 import sqlalchemy as sa
-from sqlalchemy import Boolean, Column, DateTime, Enum, String
+from sqlalchemy import Boolean, Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
 
 from backend.core.database import Base
@@ -14,11 +13,6 @@ USER_PATIENT_ROLE: UserRole = "USER-PATIENT"
 USER_HEALTH_WORKER_ROLE: UserRole = "USER-HEALTH-WORKER"
 DEFAULT_USER_ROLE: UserRole = USER_PATIENT_ROLE
 ALLOWED_USER_ROLES: set[str] = {USER_PATIENT_ROLE, USER_HEALTH_WORKER_ROLE}
-
-
-class UserRole(str, enum.Enum):
-    USER_PATIENT = "USER_PATIENT"
-    USER_HEALTH_WORKER = "USER_HEALTH_WORKER"
 
 
 class User(Base):
@@ -33,11 +27,6 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_onboarded = Column(Boolean, default=True, nullable=False)
     onboarding_step = Column(sa.Integer, default=0, nullable=False)
-    role = Column(
-        Enum(UserRole, name="userrole"),
-        nullable=False,
-        default=UserRole.USER_PATIENT,
-    )
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
