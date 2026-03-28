@@ -10,6 +10,7 @@ const LoginPage = lazy(() => import('@features/auth/pages/LoginPage'));
 const SignupPage = lazy(() => import('@features/auth/pages/SignupPage'));
 const DashboardPage = lazy(() => import('@features/dashboard/pages/DashboardPage'));
 const OnboardingPage = lazy(() => import('@features/onboarding/pages/OnboardingPage'));
+const WorkerDashboardPage = lazy(() => import('@features/workerDashboard/pages/WorkerDashboardPage'));
 
 const Loader = () => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -54,7 +55,7 @@ export const router = createBrowserRouter([
     path: '/onboarding',
     element: (
       <ErrorBoundary>
-        <ProtectedRoute>
+        <ProtectedRoute allowedRoles={['USER_PATIENT']}>
           <Suspense fallback={<Loader />}>
             <OnboardingPage />
           </Suspense>
@@ -66,9 +67,21 @@ export const router = createBrowserRouter([
     path: '/dashboard',
     element: (
       <ErrorBoundary>
-        <ProtectedRoute requireOnboarded>
+        <ProtectedRoute requireOnboarded allowedRoles={['USER_PATIENT']}>
           <Suspense fallback={<Loader />}>
             <DashboardPage />
+          </Suspense>
+        </ProtectedRoute>
+      </ErrorBoundary>
+    ),
+  },
+  {
+    path: '/worker-dashboard',
+    element: (
+      <ErrorBoundary>
+        <ProtectedRoute allowedRoles={['USER_HEALTH_WORKER']}>
+          <Suspense fallback={<Loader />}>
+            <WorkerDashboardPage />
           </Suspense>
         </ProtectedRoute>
       </ErrorBoundary>
