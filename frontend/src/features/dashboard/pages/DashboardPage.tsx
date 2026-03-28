@@ -7,6 +7,7 @@ import IcbtPage from '@features/icbt/pages/IcbtPage';
 import CommunityPage from '@features/community/pages/CommunityPage';
 import HealthWorkersPage from '@features/workers/pages/HealthWorkersPage';
 import TrainingPage from '@features/training/pages/TrainingPage';
+import CommunityHubPage from '@features/communityHub/pages/CommunityHubPage';
 import { DASHBOARD_UPCOMING_MEETINGS, WORKER_PHOTOS } from '@shared/constants';
 
 const MEETING_WORKER_PHOTO: Record<string, string | undefined> = {
@@ -14,12 +15,13 @@ const MEETING_WORKER_PHOTO: Record<string, string | undefined> = {
   'Ahmad Farouk': WORKER_PHOTOS['2'],
 };
 
-type Section = 'home' | 'programs' | 'community' | 'workers' | 'training';
+type Section = 'home' | 'programs' | 'community' | 'community-hub' | 'workers' | 'training';
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'programs', label: 'iCBT Programmes' },
-  { id: 'community', label: 'Community' },
+  { id: 'community', label: 'Community Feed' },
+  { id: 'community-hub', label: 'My Community' },
   { id: 'workers', label: 'Health Workers' },
   { id: 'training', label: 'Training' },
 ];
@@ -320,7 +322,7 @@ const DashboardPage = () => {
                 {(
                   [
                     { label: 'Continue programme', sub: 'Understanding Anxiety — Day 10', section: 'programs' as Section },
-                    { label: 'Browse community', sub: 'See what others are sharing', section: 'community' as Section },
+                    { label: 'My Community', sub: 'Chat, recommended programmes & engagement', section: 'community-hub' as Section },
                     { label: 'Find a health worker', sub: 'Book a session with a counsellor', section: 'workers' as Section },
                     { label: 'Explore training', sub: 'Earn a new certification', section: 'training' as Section },
                   ] as { label: string; sub: string; section: Section }[]
@@ -343,6 +345,8 @@ const DashboardPage = () => {
         {section === 'programs' && <IcbtPage />}
 
         {section === 'community' && <CommunityPage />}
+
+        {section === 'community-hub' && <CommunityHubPage />}
 
         {section === 'workers' && <HealthWorkersPage />}
 
