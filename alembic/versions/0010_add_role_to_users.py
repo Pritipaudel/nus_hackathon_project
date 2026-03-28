@@ -20,14 +20,34 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "users",
-        sa.Column(
-            "role",
-            sa.String(length=32),
-            nullable=True,
-            server_default="USER-PATIENT",
-        ),
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+
+    if "role" not in user_columns:
+        op.add_column(
+            "users",
+            sa.Column(
+                "role",
+                sa.String(length=32),
+                nullable=True,
+                server_default="USER-PATIENT",
+            ),
+        )
+    else:
+        # Older revisions created `role` as a PostgreSQL enum. Cast to string so
+        # we can normalize values to the current hyphenated format.
+        op.execute(
+            "ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(32) USING role::text"
+        )
+
+    op.execute(
+        "UPDATE users "
+        "SET role = CASE "
+        "WHEN role = 'USER_PATIENT' THEN 'USER-PATIENT' "
+        "WHEN role = 'USER_HEALTH_WORKER' THEN 'USER-HEALTH-WORKER' "
+        "ELSE role END"
     )
     op.execute("UPDATE users SET role = 'USER-PATIENT' WHERE role IS NULL")
     op.alter_column(
@@ -37,13 +57,23 @@ def upgrade() -> None:
         nullable=False,
         server_default="USER-PATIENT",
     )
+    op.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_role_allowed")
     op.create_check_constraint(
         "ck_users_role_allowed",
         "users",
         "role IN ('USER-PATIENT', 'USER-HEALTH-WORKER')",
     )
 
+    # If the enum type from older revisions exists and is no longer referenced,
+    # dropping it keeps the schema tidy.
+    op.execute("DROP TYPE IF EXISTS userrole")
+
 
 def downgrade() -> None:
-    op.drop_constraint("ck_users_role_allowed", "users", type_="check")
-    op.drop_column("users", "role")
+    op.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_role_allowed")
+
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+    if "role" in user_columns:
+        op.drop_column("users", "role")

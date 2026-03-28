@@ -40,6 +40,7 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
         email=body.email,
         first_name=body.first_name,
         last_name=body.last_name,
+        anonymous_username=body.anonymous_username,
         hashed_password=hash_password(body.password),
         role=body.role,
     )

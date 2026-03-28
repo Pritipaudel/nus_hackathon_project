@@ -18,11 +18,15 @@ class UserRepository:
         email: str,
         first_name: str,
         last_name: str,
+        anonymous_username: str | None,
         hashed_password: str,
         role: UserRole = DEFAULT_USER_ROLE,
     ) -> User:
         user = User(
             email=email,
+            anonymous_username=(
+                anonymous_username.strip() if anonymous_username else email
+            ),
             first_name=first_name,
             last_name=last_name,
             hashed_password=hashed_password,

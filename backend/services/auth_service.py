@@ -87,6 +87,7 @@ def onboard_health_worker(
     )
 
     current_user.role = USER_HEALTH_WORKER_ROLE
+    current_user.anonymous_username = username.strip()
     current_user.is_onboarded = True
     current_user.onboarding_step = 0
 

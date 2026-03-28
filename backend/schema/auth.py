@@ -11,6 +11,7 @@ class SignupRequest(BaseModel):
     password: str
     first_name: str
     last_name: str
+    anonymous_username: str | None = Field(default=None, min_length=2, max_length=120)
     role: UserRole = DEFAULT_USER_ROLE
 
 
@@ -27,6 +28,7 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
+    anonymous_username: str
     first_name: str
     last_name: str
     role: UserRole
