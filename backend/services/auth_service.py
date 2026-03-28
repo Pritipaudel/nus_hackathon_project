@@ -34,7 +34,7 @@ def create_access_token(subject: str, role: TokenRole) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
     )
-    payload = {"sub": subject, "role": role, "exp": expire}
+    payload = {"sub": subject, "role": role.replace("-", "_"), "exp": expire}
     return jwt.encode(
         payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
     )
@@ -47,6 +47,7 @@ def decode_access_token(token: str) -> tuple[str, TokenRole]:
         )
         subject: str | None = payload.get("sub")
         role = payload.get("role")
+        role = role.replace("_", "-") if isinstance(role, str) else None
         if subject is None or role not in ALLOWED_TOKEN_ROLES:
             raise ValueError("Invalid token payload")
         return subject, role

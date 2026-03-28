@@ -15,6 +15,7 @@ from backend.schema.auth import (
     SignupRequest,
     TokenResponse,
     UserResponse,
+    to_db_role,
 )
 from backend.services.auth_service import (
     authenticate_user,
@@ -42,7 +43,7 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
         last_name=body.last_name,
         anonymous_username=body.anonymous_username,
         hashed_password=hash_password(body.password),
-        role=body.role,
+        role=to_db_role(body.role),
     )
     token = create_access_token(str(user.id), role=user.role)
     return AuthResponse(

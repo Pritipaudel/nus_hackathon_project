@@ -1,8 +1,11 @@
+export type UserRole = 'USER_PATIENT' | 'USER_HEALTH_WORKER';
+
 export interface User {
   id: string;
   email: string;
   first_name: string;
   last_name: string;
+  role: UserRole;
   is_active: boolean;
   is_onboarded: boolean;
   created_at: string;
@@ -29,4 +32,5 @@ export interface SignupRequest {
   password: string;
   first_name: string;
   last_name: string;
+  role: UserRole;
 }
