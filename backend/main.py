@@ -1,7 +1,11 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.index_router import index_router
+from backend.api.icbt_router import icbt_router
 
 app = FastAPI(title="NUS Hackathon Backend")
 
@@ -14,3 +18,4 @@ app.add_middleware(
 )
 
 app.include_router(index_router)
+app.include_router(icbt_router)

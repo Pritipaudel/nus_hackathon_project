@@ -10,8 +10,11 @@ from dotenv import load_dotenv
 from alembic import context
 
 try:
-    from app.core.database import Base
-except ImportError:
+    from backend.core.database import Base
+    import backend.models.icbt
+except ImportError as e:
+    import sys
+    print(f"Error importing Base: {e}", file=sys.stderr)
     from sqlalchemy.orm import declarative_base
 
     Base = declarative_base()
