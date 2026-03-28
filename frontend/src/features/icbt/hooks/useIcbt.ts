@@ -1,35 +1,42 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { icbtApi } from '../api/icbtApi';
+import type { EnrollIcbtRequest, UpdateProgressRequest } from '../api/icbtApi';
 
-export const usePrograms = () =>
+export const ICBT_KEYS = {
+  programs: ['icbt', 'programs'] as const,
+  myPrograms: ['icbt', 'my-programs'] as const,
+};
+
+export const useIcbtPrograms = () =>
   useQuery({
-    queryKey: ['icbt', 'programs'],
+    queryKey: ICBT_KEYS.programs,
     queryFn: icbtApi.getPrograms,
   });
 
-export const useMyPrograms = () =>
+export const useMyIcbtPrograms = () =>
   useQuery({
-    queryKey: ['icbt', 'my-programs'],
+    queryKey: ICBT_KEYS.myPrograms,
     queryFn: icbtApi.getMyPrograms,
   });
 
-export const useEnroll = () => {
+export const useEnrollIcbt = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (programId: string) => icbtApi.enroll({ program_id: programId }),
+    mutationFn: (body: EnrollIcbtRequest) => icbtApi.enroll(body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['icbt', 'my-programs'] });
+      void queryClient.invalidateQueries({ queryKey: ICBT_KEYS.myPrograms });
     },
   });
 };
 
-export const useCompleteModule = () => {
+export const useUpdateIcbtProgress = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (moduleId: string) => icbtApi.completeModule(moduleId),
+    mutationFn: ({ programId, body }: { programId: string; body: UpdateProgressRequest }) =>
+      icbtApi.updateProgress(programId, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['icbt', 'my-programs'] });
+      void queryClient.invalidateQueries({ queryKey: ICBT_KEYS.myPrograms });
     },
   });
 };

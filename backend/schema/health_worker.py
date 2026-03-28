@@ -8,6 +8,13 @@ class HealthWorkerResponse(BaseModel):
     id: uuid.UUID
     username: str
     organization: str
+    title: str | None = None
+    bio: str | None = None
+    specialties: list[str] = []
+    languages: list[str] = []
+    availability: str | None = "available"
+    sessions_count: int = 0
+    photo_url: str | None = None
     community_id: uuid.UUID | None = None
     community_name: str | None = None
     is_verified: bool
@@ -27,6 +34,7 @@ class ScheduleMeetingResponse(BaseModel):
 
 class MeetingResponse(BaseModel):
     id: uuid.UUID
+    user_id: uuid.UUID
     health_worker_id: uuid.UUID
     scheduled_at: datetime
     status: str
@@ -91,3 +99,44 @@ class UserCertificationResponse(BaseModel):
 
 class ActionStatusResponse(BaseModel):
     status: str
+
+
+class WorkerPatientResponse(BaseModel):
+    user_id: uuid.UUID
+    first_name: str
+    last_name: str
+    anonymous_username: str
+    email: str
+
+
+class PatientProfileIcbtItem(BaseModel):
+    program_id: uuid.UUID
+    title: str
+    progress_percent: int
+    status: str
+    community_name: str | None = None
+
+
+class PatientProfileCommunityItem(BaseModel):
+    community_group_id: uuid.UUID
+    name: str
+    value: str | None = None
+
+
+class PatientProfileMoodSlice(BaseModel):
+    category: str
+    count: int
+
+
+class WorkerPatientProfileResponse(BaseModel):
+    user_id: uuid.UUID
+    first_name: str
+    last_name: str
+    anonymous_username: str
+    email: str
+    icbt_programs: list[PatientProfileIcbtItem]
+    community_groups: list[PatientProfileCommunityItem]
+    mood_by_category: list[PatientProfileMoodSlice]
+    posts_count: int
+    overall_icbt_progress_percent: int | None = None
+    mood_summary: str | None = None

@@ -1,19 +1,21 @@
 import { useState } from 'react';
 
 import { useAuthStore } from '@shared/stores/authStore';
-import type { WorkerDashboardSection, WorkerPatient } from '@shared/types';
+import type { Certification, CommunityPost, HealthWorker, WorkerDashboardSection } from '@shared/types';
 import {
-  MOCK_MEETINGS,
-  MOCK_WORKERS,
-  MOCK_WORKER_PATIENTS,
-  PATIENT_CATEGORY_COLOR,
-  PATIENT_MOOD_COLOR,
-  PATIENT_MOOD_LABEL,
-  WORKER_AVATARS,
-  WORKER_OVERVIEW_STATS,
-  WORKER_PHOTOS,
-  WORKER_SPECIALTIES,
-} from '@shared/constants';
+  useAllCertifications,
+  useAssignCertification,
+  useCreateCertification,
+  useHealthWorkers,
+  useMyPatients,
+  useMyWorkerMeetings,
+  useUploadWorkerPhoto,
+  useWorkerPatientProfile,
+} from '@features/workers/hooks/useWorkers';
+import type { WorkerPatient } from '@features/workers/api/workersApi';
+import { PATIENT_CATEGORY_COLOR } from '@shared/constants/workerDashboard';
+import { useWorkerDashboardStats } from '@features/dashboard/hooks/useDashboard';
+import { useCommunityPosts } from '@features/community/hooks/useCommunity';
 import CommunityPage from '@features/community/pages/CommunityPage';
 
 const NAV: { id: WorkerDashboardSection; label: string; icon: React.ReactNode }[] = [
@@ -48,6 +50,15 @@ const NAV: { id: WorkerDashboardSection; label: string; icon: React.ReactNode }[
     ),
   },
   {
+    id: 'certifications',
+    label: 'Certifications',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="6" /><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+      </svg>
+    ),
+  },
+  {
     id: 'community',
     label: 'Community',
     icon: (
@@ -63,183 +74,120 @@ const formatDate = (iso: string): string =>
     weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
   });
 
-const PatientAvatar = ({ p, size = 40 }: { p: WorkerPatient; size?: number }) => (
-  <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-    <img
-      src={p.photo}
-      alt={p.name}
-      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,.14)', display: 'block' }}
-      onError={(e) => {
-        e.currentTarget.style.display = 'none';
-        (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute('style');
-      }}
-    />
-    <div style={{
-      display: 'none', width: size, height: size, borderRadius: '50%', position: 'absolute', top: 0, left: 0,
-      background: 'linear-gradient(135deg,#16a34a,#15803d)', color: '#fff',
-      fontSize: size * 0.3, fontWeight: 700, alignItems: 'center', justifyContent: 'center',
-    }}>{p.initials}</div>
-  </div>
-);
+const formatRelative = (iso: string): string => {
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = Math.floor(diff / 3_600_000);
+  if (h < 1) return 'just now';
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+};
 
-const MoodBar = ({ score, day }: { score: number; day: string }) => (
-  <div className="pt-mood-col">
-    <span className="pt-mood-col__score">{score}</span>
-    <div className="pt-mood-col__track">
-      <div className="pt-mood-col__fill" style={{ height: `${(score / 5) * 100}%`, background: PATIENT_MOOD_COLOR[score] ?? '#22c55e' }} />
-    </div>
-    <span className="pt-mood-col__day">{day}</span>
-  </div>
-);
+const WorkerAvatarSmall = ({
+  worker,
+  photoClass,
+  avatarClass,
+}: {
+  worker: HealthWorker;
+  photoClass: string;
+  avatarClass: string;
+}) => {
+  const [imgFailed, setImgFailed] = useState(false);
+  const initials = worker.username
+    .split(' ')
+    .map((n) => n[0] ?? '')
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  const photo = worker.photo_url?.trim();
+  if (photo && !imgFailed) {
+    return (
+      <img
+        src={photo}
+        alt={worker.username}
+        className={photoClass}
+        onError={() => setImgFailed(true)}
+      />
+    );
+  }
+  return <div className={avatarClass}>{initials}</div>;
+};
 
-const WeeklyBar = ({ week, pct }: { week: string; pct: number }) => (
-  <div className="pt-weekly-col">
-    <span className="pt-weekly-col__pct">{pct}%</span>
-    <div className="pt-weekly-col__track">
-      <div className="pt-weekly-col__fill" style={{ height: `${pct}%` }} />
-    </div>
-    <span className="pt-weekly-col__label">{week}</span>
-  </div>
-);
+interface PatientRow {
+  userId: string;
+  username: string;
+  postCount: number;
+  latestPostAt: string;
+  posts: CommunityPost[];
+}
 
-const PatientDetail = ({ p, onBack }: { p: WorkerPatient; onBack: () => void }) => (
-  <div className="pt-detail">
-    <button type="button" className="wd-back-btn" onClick={onBack}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="15 18 9 12 15 6" />
-      </svg>
-      Back to patients
-    </button>
-
-    <div className="pt-hero">
-      <PatientAvatar p={p} size={72} />
-      <div className="pt-hero__info">
-        <div className="pt-hero__top">
-          <h2 className="pt-hero__name">{p.name}</h2>
-          <span className={`wd-badge ${p.status === 'active' ? 'wd-badge--active' : 'wd-badge--inactive'}`}>
-            {p.status === 'active' ? 'Active' : 'Inactive'}
-          </span>
-        </div>
-        <p className="pt-hero__prog">{p.program}</p>
-        <p className="pt-hero__meta">Joined {p.joined} · Last active {p.lastActive}</p>
-      </div>
-      <div className="pt-hero__stats">
-        {([
-          { label: 'Sessions',     value: p.sessions },
-          { label: 'Modules done', value: `${p.modulesCompleted}/${p.totalModules}` },
-          { label: 'Day streak',   value: p.streak },
-        ] as { label: string; value: string | number }[]).map((s) => (
-          <div key={s.label} className="pt-hero__stat">
-            <p className="pt-hero__stat-val">{s.value}</p>
-            <p className="pt-hero__stat-label">{s.label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-
-    <div className="pt-grid">
-      <div className="pt-card pt-card--progress">
-        <p className="pt-card__title">Programme progress</p>
-        <div className="pt-progress-ring-wrap">
-          <svg width="100" height="100" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#f0fdf4" strokeWidth="10" />
-            <circle
-              cx="50" cy="50" r="40" fill="none" stroke="#16a34a" strokeWidth="10"
-              strokeDasharray={`${2 * Math.PI * 40}`}
-              strokeDashoffset={`${2 * Math.PI * 40 * (1 - p.progress / 100)}`}
-              strokeLinecap="round"
-              transform="rotate(-90 50 50)"
-            />
-            <text x="50" y="50" textAnchor="middle" dy="0.35em" fontSize="18" fontWeight="700" fill="#16a34a">{p.progress}%</text>
-          </svg>
-        </div>
-        <div className="pt-modules-bar">
-          <div className="pt-modules-bar__fill" style={{ width: `${(p.modulesCompleted / p.totalModules) * 100}%` }} />
-        </div>
-        <p className="pt-card__sub">{p.modulesCompleted} of {p.totalModules} modules completed</p>
-      </div>
-
-      <div className="pt-card pt-card--mood">
-        <p className="pt-card__title">Mood this week</p>
-        <div className="pt-mood-chart">
-          {p.mood.map((m) => <MoodBar key={m.day} score={m.score} day={m.day} />)}
-        </div>
-        <div className="pt-mood-legend">
-          {([5, 4, 3, 2, 1] as const).map((n) => (
-            <span key={n} className="pt-mood-legend__item">
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: PATIENT_MOOD_COLOR[n], display: 'inline-block' }} />
-              {PATIENT_MOOD_LABEL[n]}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="pt-card pt-card--weekly">
-        <p className="pt-card__title">Weekly progress</p>
-        <div className="pt-weekly-chart">
-          {p.weeklyProgress.map((w) => <WeeklyBar key={w.week} week={w.week} pct={w.pct} />)}
-        </div>
-      </div>
-    </div>
-
-    <div className="pt-row">
-      <div className="pt-card pt-card--posts">
-        <p className="pt-card__title">Community posts</p>
-        {p.posts.length === 0 && <p className="wd-empty">No community posts yet.</p>}
-        {p.posts.map((post, i) => {
-          const [bg, fg] = (PATIENT_CATEGORY_COLOR[post.category] ?? '#f3f4f6|#374151').split('|');
-          return (
-            <div key={i} className="pt-post">
-              <div className="pt-post__meta">
-                <span className="pt-cat-chip" style={{ background: bg, color: fg }}>
-                  {post.category.charAt(0) + post.category.slice(1).toLowerCase()}
-                </span>
-                <span className="pt-post__time">{post.time}</span>
-              </div>
-              <p className="pt-post__text">{post.text}</p>
-              <div className="pt-post__footer">
-                <span className="pt-post__stat">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                  </svg>
-                  {post.likes}
-                </span>
-                <span className="pt-post__stat">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                  {post.comments}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="pt-card pt-card--notes">
-        <p className="pt-card__title">Session notes</p>
-        {p.notes.map((n, i) => (
-          <div key={i} className="pt-note">
-            <p className="pt-note__date">{n.date}</p>
-            <p className="pt-note__text">{n.note}</p>
-          </div>
-        ))}
-        <button type="button" className="pt-add-note-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Add note
-        </button>
-      </div>
-    </div>
-  </div>
-);
+const buildPatientRows = (posts: CommunityPost[]): PatientRow[] => {
+  const map = new Map<string, PatientRow>();
+  for (const post of posts) {
+    const existing = map.get(post.user_id);
+    if (existing) {
+      existing.postCount += 1;
+      existing.posts.push(post);
+      if (post.created_at > existing.latestPostAt) {
+        existing.latestPostAt = post.created_at;
+      }
+    } else {
+      map.set(post.user_id, {
+        userId: post.user_id,
+        username: post.username,
+        postCount: 1,
+        latestPostAt: post.created_at,
+        posts: [post],
+      });
+    }
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.latestPostAt).getTime() - new Date(a.latestPostAt).getTime(),
+  );
+};
 
 const OverviewSection = () => {
   const user = useAuthStore((s) => s.user);
   const today = new Date().toLocaleDateString('en-SG', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+
+  const { data: stats, isLoading: loadingStats } = useWorkerDashboardStats();
+  const { data: meetings = [], isLoading: loadingMeetings } = useMyWorkerMeetings();
+  const { data: workers = [], isLoading: loadingWorkers } = useHealthWorkers();
+  const { data: posts = [], isLoading: loadingPosts } = useCommunityPosts({ limit: 100 });
+  void loadingWorkers;
+
+  const patientRows = buildPatientRows(posts);
+
+  const upcomingMeetings = meetings.filter((m) => new Date(m.scheduled_at) >= new Date());
+
+  const statCards = [
+    {
+      label: 'Health workers',
+      value: loadingStats ? '—' : String(stats?.total_health_workers ?? 0),
+      sub: 'in the platform',
+      color: 'wd-stat-card--green',
+    },
+    {
+      label: 'Upcoming meetings',
+      value: loadingMeetings ? '—' : String(upcomingMeetings.length),
+      sub: 'sessions with your patients',
+      color: 'wd-stat-card--blue',
+    },
+    {
+      label: 'Active community members',
+      value: loadingPosts ? '—' : String(patientRows.length),
+      sub: 'users posting in community',
+      color: 'wd-stat-card--amber',
+    },
+    {
+      label: 'Total community posts',
+      value: loadingStats ? '—' : String(stats?.total_community_posts ?? 0),
+      sub: 'across all groups',
+      color: 'wd-stat-card--red',
+    },
+  ];
 
   return (
     <div className="wd-section">
@@ -249,7 +197,7 @@ const OverviewSection = () => {
       </div>
 
       <div className="wd-stats-grid">
-        {WORKER_OVERVIEW_STATS.map((s) => (
+        {statCards.map((s) => (
           <div key={s.label} className={`wd-stat-card ${s.color}`}>
             <p className="wd-stat-card__value">{s.value}</p>
             <p className="wd-stat-card__label">{s.label}</p>
@@ -261,21 +209,23 @@ const OverviewSection = () => {
       <div className="wd-row">
         <div className="wd-panel wd-panel--flex2">
           <h3 className="wd-panel__title">Upcoming sessions</h3>
-          {MOCK_MEETINGS.length === 0 && <p className="wd-empty">No upcoming sessions</p>}
-          {MOCK_MEETINGS.map((m) => {
-            const photo = WORKER_PHOTOS[m.worker_id ?? ''];
-            const avatar = WORKER_AVATARS[m.worker_id ?? ''];
+          {loadingMeetings && <p className="wd-empty">Loading...</p>}
+          {!loadingMeetings && upcomingMeetings.length === 0 && (
+            <p className="wd-empty">No upcoming sessions</p>
+          )}
+          {upcomingMeetings.slice(0, 5).map((m) => {
+            const initials = m.user_id
+              ? m.user_id.slice(0, 2).toUpperCase()
+              : 'PT';
             return (
               <div key={m.id} className="wd-session-row">
                 <div className="wd-session-row__avatar-wrap">
-                  {photo ? (
-                    <img src={photo} alt={m.worker_name} className="wd-session-row__photo" />
-                  ) : (
-                    <div className="wd-session-row__avatar">{avatar ?? 'HW'}</div>
-                  )}
+                  <div className="wd-session-row__avatar" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', color: '#fff' }}>
+                    {initials}
+                  </div>
                 </div>
                 <div className="wd-session-row__info">
-                  <p className="wd-session-row__name">{m.worker_name}</p>
+                  <p className="wd-session-row__name">Session with patient</p>
                   <p className="wd-session-row__time">{formatDate(m.scheduled_at)}</p>
                 </div>
                 <span className="wd-badge wd-badge--scheduled">{m.status}</span>
@@ -285,63 +235,326 @@ const OverviewSection = () => {
         </div>
 
         <div className="wd-panel wd-panel--flex1">
-          <h3 className="wd-panel__title">Patient progress</h3>
-          {MOCK_WORKER_PATIENTS.slice(0, 4).map((p) => (
-            <div key={p.id} className="wd-progress-row">
-              <div className="wd-progress-row__avatar-wrap">
-                <img
-                  src={p.photo}
-                  alt={p.name}
-                  className="wd-progress-row__photo"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute('style');
-                  }}
-                />
-                <div className="wd-progress-row__initials" style={{ display: 'none' }}>{p.initials}</div>
-              </div>
-              <div className="wd-progress-row__meta">
-                <p className="wd-progress-row__name">{p.name}</p>
-                <p className="wd-progress-row__program">{p.program}</p>
-              </div>
-              <div className="wd-progress-bar-wrap">
-                <div className="wd-progress-bar">
-                  <div className="wd-progress-bar__fill" style={{ width: `${p.progress}%` }} />
+          <h3 className="wd-panel__title">Recent community activity</h3>
+          {loadingPosts && <p className="wd-empty">Loading...</p>}
+          {!loadingPosts && patientRows.length === 0 && (
+            <p className="wd-empty">No community activity yet.</p>
+          )}
+          {patientRows.slice(0, 5).map((row) => {
+            const initials = row.username
+              .replace('anonymous-', '')
+              .slice(0, 2)
+              .toUpperCase();
+            return (
+              <div key={row.userId} className="wd-progress-row">
+                <div className="wd-progress-row__avatar-wrap">
+                  <div className="wd-progress-row__initials">{initials}</div>
                 </div>
-                <span className="wd-progress-row__pct">{p.progress}%</span>
+                <div className="wd-progress-row__meta">
+                  <p className="wd-progress-row__name">{row.username}</p>
+                  <p className="wd-progress-row__program">{row.postCount} post{row.postCount !== 1 ? 's' : ''}</p>
+                </div>
+                <span className="wd-badge wd-badge--active">
+                  {formatRelative(row.latestPostAt)}
+                </span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       <div className="wd-panel">
         <h3 className="wd-panel__title">Your colleagues</h3>
+        {loadingWorkers && <p className="wd-empty">Loading...</p>}
         <div className="wd-colleagues-grid">
-          {MOCK_WORKERS.slice(0, 4).map((w) => {
-            const photo = WORKER_PHOTOS[w.id];
-            const avatar = WORKER_AVATARS[w.id];
-            const specs = WORKER_SPECIALTIES[w.id] ?? [];
-            return (
-              <div key={w.id} className="wd-colleague-card">
-                <div className="wd-colleague-card__avatar-wrap">
-                  {photo ? (
-                    <img src={photo} alt={w.username} className="wd-colleague-card__photo" />
-                  ) : (
-                    <div className="wd-colleague-card__avatar">{avatar}</div>
-                  )}
-                </div>
-                <p className="wd-colleague-card__name">{w.username}</p>
-                <p className="wd-colleague-card__org">{w.organization}</p>
-                <div className="wd-colleague-card__tags">
-                  {specs.slice(0, 2).map((sp) => (
-                    <span key={sp} className="wd-tag">{sp}</span>
-                  ))}
-                </div>
+          {workers.slice(0, 4).map((w) => (
+            <div key={w.id} className="wd-colleague-card">
+              <div className="wd-colleague-card__avatar-wrap">
+                <WorkerAvatarSmall
+                  worker={w}
+                  photoClass="wd-colleague-card__photo"
+                  avatarClass="wd-colleague-card__avatar"
+                />
               </div>
-            );
-          })}
+              <p className="wd-colleague-card__name">{w.username}</p>
+              <p className="wd-colleague-card__org">{w.organization}</p>
+              <div className="wd-colleague-card__tags">
+                {w.specialties.slice(0, 2).map((sp) => (
+                  <span key={sp} className="wd-tag">{sp}</span>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
+      </div>
+    </div>
+  );
+};
+
+
+const formatCategoryLabel = (cat: string) =>
+  cat.split('_').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+
+const PatientProfilePanel = ({
+  patient,
+  onBack,
+  onAssignCert,
+}: {
+  patient: WorkerPatient;
+  onBack: () => void;
+  onAssignCert: (p: WorkerPatient) => void;
+}) => {
+  const { data, isLoading, isError, error } = useWorkerPatientProfile(patient.user_id);
+  const initials = `${patient.first_name[0] ?? ''}${patient.last_name[0] ?? ''}`.toUpperCase();
+
+  return (
+    <div className="wd-section wd-section--wide">
+      <button type="button" className="wd-back-btn" onClick={onBack}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        Back to patients
+      </button>
+
+      <div className="pt-hero" style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: '50%',
+          background: 'linear-gradient(135deg,#16a34a,#15803d)',
+          color: '#fff', fontSize: 28, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          {initials}
+        </div>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <h2 className="wd-section__title" style={{ marginBottom: 4 }}>
+            {patient.first_name} {patient.last_name}
+          </h2>
+          <p style={{ color: '#6b7280', fontSize: 14 }}>@{patient.anonymous_username}</p>
+          <p style={{ color: '#6b7280', fontSize: 14 }}>{patient.email}</p>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            style={{ marginTop: 12 }}
+            onClick={() => onAssignCert(patient)}
+          >
+            Assign certification
+          </button>
+        </div>
+        {data?.overall_icbt_progress_percent != null && (
+          <div style={{
+            padding: '16px 24px', borderRadius: 12, border: '1px solid var(--color-border)',
+            textAlign: 'center', background: '#f8fafc',
+          }}>
+            <p style={{ fontSize: 28, fontWeight: 700, color: '#16a34a', margin: 0 }}>
+              {data.overall_icbt_progress_percent}%
+            </p>
+            <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>Avg. iCBT progress</p>
+          </div>
+        )}
+      </div>
+
+      {isLoading && <p className="wd-empty" style={{ marginTop: 24 }}>Loading profile...</p>}
+      {isError && (
+        <p className="wd-empty" style={{ marginTop: 24, color: '#dc2626' }}>
+          {(error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Could not load profile.'}
+        </p>
+      )}
+
+      {data && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 24 }}>
+          <div className="wd-panel" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+            <h3 className="wd-panel__title">Mood & engagement</h3>
+            <p style={{ margin: 0, fontSize: 14, color: '#166534', lineHeight: 1.5 }}>
+              {data.mood_summary ?? 'Summary unavailable.'}
+            </p>
+            <p style={{ margin: '8px 0 0', fontSize: 12, color: '#6b7280' }}>
+              {data.posts_count} community post{data.posts_count !== 1 ? 's' : ''} — post categories are used as mood / theme signals.
+            </p>
+          </div>
+
+          <div className="wd-panel">
+            <h3 className="wd-panel__title">Community groups</h3>
+            {data.community_groups.length === 0 ? (
+              <p className="wd-empty">Not active in any community groups yet (or no posts / iCBT community link).</p>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {data.community_groups.map((g) => (
+                  <span
+                    key={g.community_group_id}
+                    className="wd-tag"
+                    style={{ fontSize: 13, padding: '6px 12px' }}
+                  >
+                    {g.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="wd-panel">
+            <h3 className="wd-panel__title">Post themes (mood signals)</h3>
+            {data.mood_by_category.length === 0 ? (
+              <p className="wd-empty">No tagged posts yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {data.mood_by_category.map((m) => {
+                  const total = data.mood_by_category.reduce((s, x) => s + x.count, 0);
+                  const pct = total ? (m.count / total) * 100 : 0;
+                  const [bg, fg] = (PATIENT_CATEGORY_COLOR[m.category] ?? '#f3f4f6|#374151').split('|');
+                  return (
+                    <div key={m.category} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span
+                        style={{
+                          background: bg, color: fg, fontSize: 11, fontWeight: 600,
+                          padding: '4px 10px', borderRadius: 999, minWidth: 100, textAlign: 'center',
+                        }}
+                      >
+                        {formatCategoryLabel(m.category)}
+                      </span>
+                      <div style={{ flex: 1, height: 8, background: '#f3f4f6', borderRadius: 999 }}>
+                        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 999, background: fg }} />
+                      </div>
+                      <span style={{ fontSize: 12, color: '#6b7280', minWidth: 28 }}>{m.count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="wd-panel">
+            <h3 className="wd-panel__title">iCBT programme progress</h3>
+            {data.icbt_programs.length === 0 ? (
+              <p className="wd-empty">Not enrolled in any iCBT programmes.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {data.icbt_programs.map((prog) => (
+                  <div key={prog.program_id}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{prog.title}</span>
+                      <span style={{ fontSize: 12, color: '#6b7280' }}>
+                        {prog.status === 'COMPLETED' ? 'Completed' : 'In progress'}
+                        {prog.community_name ? ` · ${prog.community_name}` : ''}
+                      </span>
+                    </div>
+                    <div style={{ height: 8, background: '#f3f4f6', borderRadius: 999 }}>
+                      <div
+                        style={{
+                          width: `${prog.progress_percent}%`,
+                          height: '100%',
+                          borderRadius: 999,
+                          background: prog.status === 'COMPLETED' ? '#16a34a' : '#3b82f6',
+                        }}
+                      />
+                    </div>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>{prog.progress_percent}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AssignCertModal = ({
+  patient,
+  certifications,
+  onClose,
+}: {
+  patient: WorkerPatient;
+  certifications: Certification[];
+  onClose: () => void;
+}) => {
+  const [selectedCertId, setSelectedCertId] = useState('');
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+  const assignMutation = useAssignCertification();
+
+  const submit = () => {
+    if (!selectedCertId) return;
+    setError('');
+    assignMutation.mutate(
+      { user_id: patient.user_id, certification_id: selectedCertId, verified: true },
+      {
+        onSuccess: () => setDone(true),
+        onError: (err: unknown) => {
+          const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+          setError(msg ?? 'Failed to assign certification.');
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="hw-modal-overlay" onClick={onClose}>
+      <div className="hw-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <div className="hw-modal__header">
+          <div className="hw-modal__worker">
+            <div className="hw-modal__avatar" style={{ background: '#16a34a', color: '#fff', fontSize: '0.85rem' }}>
+              {`${patient.first_name[0] ?? ''}${patient.last_name[0] ?? ''}`.toUpperCase()}
+            </div>
+            <div>
+              <p className="hw-modal__name">Assign certification</p>
+              <p className="hw-modal__org">{patient.first_name} {patient.last_name}</p>
+            </div>
+          </div>
+          <button type="button" className="hw-modal__close" onClick={onClose}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {done ? (
+          <div className="hw-modal__success">
+            <div className="hw-modal__success-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <p className="hw-modal__success-title">Certification assigned</p>
+            <p className="hw-modal__success-sub">Successfully issued to {patient.first_name} {patient.last_name}.</p>
+            <div className="hw-modal__success-actions">
+              <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Done</button>
+            </div>
+          </div>
+        ) : (
+          <div className="hw-modal__body">
+            <p className="hw-modal__label">Select certification <span style={{ color: 'red' }}>*</span></p>
+            {certifications.length === 0 ? (
+              <p style={{ color: '#9ca3af', fontSize: '0.85rem' }}>No certifications available. Create one in the Certifications section first.</p>
+            ) : (
+              <select
+                className="hw-modal__date-input"
+                value={selectedCertId}
+                onChange={(e) => setSelectedCertId(e.target.value)}
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="">Choose a certification...</option>
+                {certifications.map((c) => (
+                  <option key={c.id} value={c.id}>{c.title} — {c.organization}</option>
+                ))}
+              </select>
+            )}
+            {error && <p style={{ color: 'red', fontSize: '0.85rem', marginTop: '0.5rem' }}>{error}</p>}
+            <div className="hw-modal__footer" style={{ marginTop: '1.25rem' }}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Cancel</button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                disabled={!selectedCertId || assignMutation.isPending || certifications.length === 0}
+                onClick={submit}
+              >
+                {assignMutation.isPending && <span className="btn-spinner" />}
+                {assignMutation.isPending ? 'Assigning...' : 'Assign certification'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -349,19 +562,35 @@ const OverviewSection = () => {
 
 const PatientsSection = () => {
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<WorkerPatient | null>(null);
+  const [assignTarget, setAssignTarget] = useState<WorkerPatient | null>(null);
+  const [profilePatient, setProfilePatient] = useState<WorkerPatient | null>(null);
 
-  const filtered = MOCK_WORKER_PATIENTS.filter(
+  const { data: patients = [], isLoading } = useMyPatients();
+  const { data: certifications = [] } = useAllCertifications();
+
+  const filtered = patients.filter(
     (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.program.toLowerCase().includes(search.toLowerCase()),
+      `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+      p.anonymous_username.toLowerCase().includes(search.toLowerCase()) ||
+      p.email.toLowerCase().includes(search.toLowerCase()),
   );
 
-  if (selected) {
+  if (profilePatient) {
     return (
-      <div className="wd-section wd-section--wide">
-        <PatientDetail p={selected} onBack={() => setSelected(null)} />
-      </div>
+      <>
+        <PatientProfilePanel
+          patient={profilePatient}
+          onBack={() => setProfilePatient(null)}
+          onAssignCert={(p) => setAssignTarget(p)}
+        />
+        {assignTarget && (
+          <AssignCertModal
+            patient={assignTarget}
+            certifications={certifications}
+            onClose={() => setAssignTarget(null)}
+          />
+        )}
+      </>
     );
   }
 
@@ -369,7 +598,7 @@ const PatientsSection = () => {
     <div className="wd-section">
       <div className="wd-section__header">
         <h1 className="wd-section__title">Patients</h1>
-        <p className="wd-section__subtitle">Monitor patient progress and programme engagement</p>
+        <p className="wd-section__subtitle">Click a row to view profile — community groups, iCBT progress, and mood from posts</p>
       </div>
 
       <div className="wd-panel">
@@ -380,112 +609,436 @@ const PatientsSection = () => {
           <input
             className="wd-search-bar__input"
             type="text"
-            placeholder="Search patients..."
+            placeholder="Search by name or username..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        <table className="wd-table">
-          <thead>
-            <tr>
-              <th>Patient</th>
-              <th>Programme</th>
-              <th>Progress</th>
-              <th>Last active</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id} className="wd-table__row--clickable" onClick={() => setSelected(p)}>
-                <td>
-                  <div className="wd-table__patient">
-                    <PatientAvatar p={p} size={36} />
-                    <div>
-                      <p className="wd-table__name">{p.name}</p>
-                      <p className="wd-table__sub">{p.sessions} sessions · {p.streak}d streak</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="wd-table__program">{p.program}</td>
-                <td>
-                  <div className="wd-table-progress">
-                    <div className="wd-progress-bar wd-progress-bar--sm">
-                      <div className="wd-progress-bar__fill" style={{ width: `${p.progress}%` }} />
-                    </div>
-                    <span className="wd-progress-row__pct">{p.progress}%</span>
-                  </div>
-                </td>
-                <td className="wd-table__muted">{p.lastActive}</td>
-                <td>
-                  <span className={`wd-badge ${p.status === 'active' ? 'wd-badge--active' : 'wd-badge--inactive'}`}>
-                    {p.status === 'active' ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#9ca3af' }}>
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </td>
+        {isLoading ? (
+          <p className="wd-empty">Loading patients...</p>
+        ) : filtered.length === 0 ? (
+          <p className="wd-empty">
+            {search ? 'No patients match your search.' : 'No patients yet. Patients appear here when they book a session with you.'}
+          </p>
+        ) : (
+          <table className="wd-table">
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th></th>
               </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={6} className="wd-table__empty">No patients found</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((p) => {
+                const initials = `${p.first_name[0] ?? ''}${p.last_name[0] ?? ''}`.toUpperCase();
+                return (
+                  <tr
+                    key={p.user_id}
+                    className="wd-table__row--clickable"
+                    onClick={() => setProfilePatient(p)}
+                  >
+                    <td>
+                      <div className="wd-table__patient">
+                        <div style={{
+                          width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                          background: 'linear-gradient(135deg,#16a34a,#15803d)',
+                          color: '#fff', fontSize: 13, fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          {initials}
+                        </div>
+                        <div>
+                          <p className="wd-table__name">{p.first_name} {p.last_name}</p>
+                          <p className="wd-table__sub" style={{ fontSize: 11, color: '#9ca3af' }}>View profile</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="wd-table__muted">@{p.anonymous_username}</td>
+                    <td className="wd-table__muted">{p.email}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAssignTarget(p);
+                        }}
+                      >
+                        Assign cert
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {assignTarget && (
+        <AssignCertModal
+          patient={assignTarget}
+          certifications={certifications}
+          onClose={() => setAssignTarget(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+const MeetingsSection = () => {
+  const { data: meetings = [], isLoading } = useMyWorkerMeetings();
+  const { data: patients = [] } = useMyPatients();
+
+  const now = new Date();
+  const upcoming = meetings.filter((m) => new Date(m.scheduled_at) >= now);
+  const past = meetings.filter((m) => new Date(m.scheduled_at) < now);
+
+  const patientInitials = (userId: string) => {
+    const p = patients.find((pt) => pt.user_id === userId);
+    if (!p) return 'PT';
+    return `${p.first_name[0] ?? ''}${p.last_name[0] ?? ''}`.toUpperCase();
+  };
+
+  const patientName = (userId: string) => {
+    const p = patients.find((pt) => pt.user_id === userId);
+    return p ? `${p.first_name} ${p.last_name}` : 'Patient';
+  };
+
+  const renderRow = (m: (typeof meetings)[0]) => (
+    <div key={m.id} className="wd-session-row wd-session-row--card">
+      <div className="wd-session-row__avatar-wrap">
+        <div className="wd-session-row__avatar" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', color: '#fff' }}>
+          {patientInitials(m.user_id ?? '')}
+        </div>
+      </div>
+      <div className="wd-session-row__info">
+        <p className="wd-session-row__name">{patientName(m.user_id ?? '')}</p>
+        <p className="wd-session-row__time">{formatDate(m.scheduled_at)}</p>
+      </div>
+      <div className="wd-session-row__actions">
+        <a
+          href={m.meeting_link}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-primary btn-sm"
+        >
+          Join session
+        </a>
+        <span className="wd-badge wd-badge--scheduled">{m.status}</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="wd-section">
+      <div className="wd-section__header">
+        <h1 className="wd-section__title">Meetings</h1>
+        <p className="wd-section__subtitle">Sessions booked with your patients</p>
+      </div>
+
+      <div className="wd-panel">
+        <h3 className="wd-panel__title">Upcoming</h3>
+        {isLoading && <p className="wd-empty">Loading...</p>}
+        {!isLoading && upcoming.length === 0 && (
+          <p className="wd-empty">No upcoming sessions scheduled.</p>
+        )}
+        {upcoming.map(renderRow)}
+      </div>
+
+      <div className="wd-panel">
+        <h3 className="wd-panel__title">Past sessions</h3>
+        {!isLoading && past.length === 0 && (
+          <p className="wd-empty">No past sessions to display.</p>
+        )}
+        {past.map(renderRow)}
       </div>
     </div>
   );
 };
 
-const MeetingsSection = () => (
-  <div className="wd-section">
-    <div className="wd-section__header">
-      <h1 className="wd-section__title">Meetings</h1>
-      <p className="wd-section__subtitle">Scheduled and past sessions</p>
-    </div>
+const CertificationsSection = () => {
+  const { data: certifications = [], isLoading: loadingCerts } = useAllCertifications();
+  const { data: patients = [], isLoading: loadingPatients } = useMyPatients();
 
-    <div className="wd-panel">
-      <h3 className="wd-panel__title">Upcoming</h3>
-      {MOCK_MEETINGS.map((m) => {
-        const photo = WORKER_PHOTOS[m.worker_id ?? ''];
-        const avatar = WORKER_AVATARS[m.worker_id ?? ''];
-        return (
-          <div key={m.id} className="wd-session-row wd-session-row--card">
-            <div className="wd-session-row__avatar-wrap">
-              {photo ? (
-                <img src={photo} alt={m.worker_name} className="wd-session-row__photo" />
-              ) : (
-                <div className="wd-session-row__avatar">{avatar ?? 'HW'}</div>
-              )}
-            </div>
-            <div className="wd-session-row__info">
-              <p className="wd-session-row__name">{m.worker_name}</p>
-              <p className="wd-session-row__time">{formatDate(m.scheduled_at)}</p>
-            </div>
-            <div className="wd-session-row__actions">
-              <button type="button" className="btn btn-primary btn-sm">Join session</button>
-              <button type="button" className="btn btn-outline btn-sm">Reschedule</button>
-            </div>
+  const [showCreate, setShowCreate] = useState(false);
+  const [createTitle, setCreateTitle] = useState('');
+  const [createOrg, setCreateOrg] = useState('');
+  const [createDesc, setCreateDesc] = useState('');
+  const [createDone, setCreateDone] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  const [assignCert, setAssignCert] = useState<Certification | null>(null);
+  const [assignPatientId, setAssignPatientId] = useState('');
+  const [assignDone, setAssignDone] = useState(false);
+  const [assignError, setAssignError] = useState('');
+
+  const createMutation = useCreateCertification();
+  const assignMutation = useAssignCertification();
+
+  const openCreate = () => {
+    setCreateTitle(''); setCreateOrg(''); setCreateDesc('');
+    setCreateDone(false); setCreateError('');
+    setShowCreate(true);
+  };
+
+  const submitCreate = () => {
+    if (!createTitle.trim() || !createOrg.trim()) return;
+    setCreateError('');
+    const desc = createDesc.trim();
+    createMutation.mutate(
+      { title: createTitle.trim(), organization: createOrg.trim(), ...(desc ? { description: desc } : {}) },
+      {
+        onSuccess: () => setCreateDone(true),
+        onError: (err: unknown) => {
+          const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+          setCreateError(msg ?? 'Failed to create certification.');
+        },
+      },
+    );
+  };
+
+  const openAssign = (cert: Certification) => {
+    setAssignCert(cert);
+    setAssignPatientId('');
+    setAssignDone(false);
+    setAssignError('');
+  };
+
+  const submitAssign = () => {
+    if (!assignCert || !assignPatientId) return;
+    setAssignError('');
+    assignMutation.mutate(
+      { user_id: assignPatientId, certification_id: assignCert.id, verified: true },
+      {
+        onSuccess: () => setAssignDone(true),
+        onError: (err: unknown) => {
+          const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+          setAssignError(msg ?? 'Failed to assign certification.');
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="wd-section">
+      <div className="wd-section__header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <h1 className="wd-section__title">Certifications</h1>
+          <p className="wd-section__subtitle">Create certifications and issue them to your patients</p>
+        </div>
+        <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: '0.25rem' }} onClick={openCreate}>
+          + Create certification
+        </button>
+      </div>
+
+      <div className="wd-panel">
+        {loadingCerts ? (
+          <p className="wd-empty">Loading certifications...</p>
+        ) : certifications.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+            <p className="wd-empty">No certifications yet.</p>
+            <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }} onClick={openCreate}>
+              Create your first certification
+            </button>
           </div>
-        );
-      })}
-    </div>
+        ) : (
+          <table className="wd-table">
+            <thead>
+              <tr>
+                <th>Certification</th>
+                <th>Organisation</th>
+                <th>Description</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {certifications.map((cert) => (
+                <tr key={cert.id}>
+                  <td>
+                    <div className="wd-table__patient">
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                        background: 'linear-gradient(135deg,#6366f1,#4f46e5)',
+                        color: '#fff', fontSize: 10, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        letterSpacing: 0.5,
+                      }}>
+                        CERT
+                      </div>
+                      <p className="wd-table__name">{cert.title}</p>
+                    </div>
+                  </td>
+                  <td className="wd-table__muted">{cert.organization}</td>
+                  <td className="wd-table__muted" style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {cert.description ?? '—'}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => openAssign(cert)}
+                    >
+                      Assign to patient
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-    <div className="wd-panel">
-      <h3 className="wd-panel__title">Past sessions</h3>
-      <p className="wd-empty">No past sessions to display.</p>
+      {/* Create modal */}
+      {showCreate && (
+        <div className="hw-modal-overlay" onClick={() => setShowCreate(false)}>
+          <div className="hw-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="hw-modal__header">
+              <div className="hw-modal__worker">
+                <div className="hw-modal__avatar" style={{ background: '#6366f1', color: '#fff', fontSize: '0.75rem' }}>CERT</div>
+                <div>
+                  <p className="hw-modal__name">Create certification</p>
+                  <p className="hw-modal__org">Add to the catalogue</p>
+                </div>
+              </div>
+              <button type="button" className="hw-modal__close" onClick={() => setShowCreate(false)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {createDone ? (
+              <div className="hw-modal__success">
+                <div className="hw-modal__success-icon">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <p className="hw-modal__success-title">Certification created</p>
+                <p className="hw-modal__success-sub">"{createTitle}" has been added.</p>
+                <div className="hw-modal__success-actions">
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowCreate(false)}>Done</button>
+                </div>
+              </div>
+            ) : (
+              <div className="hw-modal__body">
+                <p className="hw-modal__label">Title <span style={{ color: 'red' }}>*</span></p>
+                <input type="text" className="hw-modal__date-input" placeholder="e.g. Mental Health First Aid" value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} />
+
+                <p className="hw-modal__label" style={{ marginTop: '1rem' }}>Issuing organisation <span style={{ color: 'red' }}>*</span></p>
+                <input type="text" className="hw-modal__date-input" placeholder="e.g. WHO" value={createOrg} onChange={(e) => setCreateOrg(e.target.value)} />
+
+                <p className="hw-modal__label" style={{ marginTop: '1rem' }}>Description (optional)</p>
+                <textarea className="hw-modal__date-input" placeholder="Brief description..." rows={3} style={{ resize: 'vertical' }} value={createDesc} onChange={(e) => setCreateDesc(e.target.value)} />
+
+                {createError && <p style={{ color: 'red', fontSize: '0.85rem', marginTop: '0.5rem' }}>{createError}</p>}
+
+                <div className="hw-modal__footer" style={{ marginTop: '1.25rem' }}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowCreate(false)}>Cancel</button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={!createTitle.trim() || !createOrg.trim() || createMutation.isPending}
+                    onClick={submitCreate}
+                  >
+                    {createMutation.isPending && <span className="btn-spinner" />}
+                    {createMutation.isPending ? 'Creating...' : 'Create certification'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Assign modal */}
+      {assignCert && (
+        <div className="hw-modal-overlay" onClick={() => setAssignCert(null)}>
+          <div className="hw-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div className="hw-modal__header">
+              <div className="hw-modal__worker">
+                <div className="hw-modal__avatar" style={{ background: '#16a34a', color: '#fff', fontSize: '0.75rem' }}>ASGN</div>
+                <div>
+                  <p className="hw-modal__name">Assign to patient</p>
+                  <p className="hw-modal__org">{assignCert.title}</p>
+                </div>
+              </div>
+              <button type="button" className="hw-modal__close" onClick={() => setAssignCert(null)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {assignDone ? (
+              <div className="hw-modal__success">
+                <div className="hw-modal__success-icon">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <p className="hw-modal__success-title">Certification assigned</p>
+                <p className="hw-modal__success-sub">Successfully issued to the patient.</p>
+                <div className="hw-modal__success-actions">
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => setAssignCert(null)}>Done</button>
+                </div>
+              </div>
+            ) : (
+              <div className="hw-modal__body">
+                <p className="hw-modal__label">Select patient <span style={{ color: 'red' }}>*</span></p>
+                {loadingPatients ? (
+                  <p style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Loading patients...</p>
+                ) : patients.length === 0 ? (
+                  <p style={{ color: '#9ca3af', fontSize: '0.85rem' }}>No patients linked to your account yet.</p>
+                ) : (
+                  <select
+                    className="hw-modal__date-input"
+                    value={assignPatientId}
+                    onChange={(e) => setAssignPatientId(e.target.value)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <option value="">Choose a patient...</option>
+                    {patients.map((p) => (
+                      <option key={p.user_id} value={p.user_id}>
+                        {p.first_name} {p.last_name} (@{p.anonymous_username})
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {assignError && <p style={{ color: 'red', fontSize: '0.85rem', marginTop: '0.5rem' }}>{assignError}</p>}
+
+                <div className="hw-modal__footer" style={{ marginTop: '1.25rem' }}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAssignCert(null)}>Cancel</button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={!assignPatientId || assignMutation.isPending || patients.length === 0}
+                    onClick={submitAssign}
+                  >
+                    {assignMutation.isPending && <span className="btn-spinner" />}
+                    {assignMutation.isPending ? 'Assigning...' : 'Assign certification'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 const WorkerDashboardPage = () => {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [section, setSection] = useState<WorkerDashboardSection>('overview');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const uploadPhotoMutation = useUploadWorkerPhoto();
 
   const handleLogout = () => {
     clearAuth();
@@ -495,6 +1048,15 @@ const WorkerDashboardPage = () => {
   const initials = user
     ? `${user.first_name[0] ?? ''}${user.last_name[0] ?? ''}`.toUpperCase()
     : 'HW';
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadPhotoMutation.mutate(file, {
+      onSuccess: (url) => setPhotoUrl(url),
+    });
+    e.target.value = '';
+  };
 
   return (
     <div className="wd-shell">
@@ -523,7 +1085,47 @@ const WorkerDashboardPage = () => {
 
         <div className="wd-sidebar__footer">
           <div className="wd-user-pill">
-            <div className="wd-user-pill__avatar">{initials}</div>
+            {/* Avatar — shows uploaded photo or initials, click to upload */}
+            <label
+              htmlFor="worker-photo-upload"
+              title="Click to upload profile photo"
+              style={{ cursor: 'pointer', position: 'relative', flexShrink: 0 }}
+            >
+              {photoUrl ? (
+                <img
+                  src={photoUrl}
+                  alt="Profile"
+                  style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div className="wd-user-pill__avatar" style={{ position: 'relative' }}>
+                  {uploadPhotoMutation.isPending ? (
+                    <span className="btn-spinner" style={{ width: 14, height: 14 }} />
+                  ) : (
+                    initials
+                  )}
+                  {/* Camera overlay hint */}
+                  <span style={{
+                    position: 'absolute', bottom: -2, right: -2,
+                    width: 14, height: 14, borderRadius: '50%',
+                    background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="white">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                  </span>
+                </div>
+              )}
+              <input
+                id="worker-photo-upload"
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handlePhotoChange}
+              />
+            </label>
+
             <div className="wd-user-pill__info">
               <p className="wd-user-pill__name">{user?.first_name} {user?.last_name}</p>
               <p className="wd-user-pill__role">Health Worker</p>
@@ -540,9 +1142,10 @@ const WorkerDashboardPage = () => {
       </aside>
 
       <main className="wd-main">
-        {section === 'overview'  && <OverviewSection />}
-        {section === 'patients'  && <PatientsSection />}
-        {section === 'meetings'  && <MeetingsSection />}
+        {section === 'overview'        && <OverviewSection />}
+        {section === 'patients'        && <PatientsSection />}
+        {section === 'meetings'        && <MeetingsSection />}
+        {section === 'certifications'  && <CertificationsSection />}
         {section === 'community' && (
           <div className="wd-section wd-section--wide">
             <div className="wd-section__header">
