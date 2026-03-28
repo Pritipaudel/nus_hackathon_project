@@ -11,6 +11,7 @@ from backend.models.health_worker import (
     TrainingProgram,
     UserCertification,
 )
+from backend.models.user import User
 
 
 class HealthWorkerRepository:
@@ -83,6 +84,18 @@ class HealthWorkerRepository:
             self.db.query(Meeting)
             .filter(Meeting.user_id == user_id)
             .order_by(Meeting.scheduled_at.desc())
+            .all()
+        )
+
+    def list_worker_meetings(self, worker_user_id: uuid.UUID) -> list[Meeting]:
+        """Return all meetings where this user IS the health worker.
+        Since HealthWorker.id == User.id (enforced by seed and onboarding),
+        we filter Meeting.health_worker_id == worker_user_id directly.
+        """
+        return (
+            self.db.query(Meeting)
+            .filter(Meeting.health_worker_id == worker_user_id)
+            .order_by(Meeting.scheduled_at.asc())
             .all()
         )
 
@@ -198,5 +211,53 @@ class HealthWorkerRepository:
             .options(joinedload(UserCertification.certification))
             .filter(UserCertification.user_id == user_id)
             .order_by(UserCertification.issued_at.desc())
+            .all()
+        )
+
+    def update_photo_url(self, worker_id: uuid.UUID, photo_url: str) -> HealthWorker | None:
+        hw = self.db.query(HealthWorker).filter(HealthWorker.id == worker_id).first()
+        if hw:
+            hw.photo_url = photo_url
+            self.db.commit()
+            self.db.refresh(hw)
+        return hw
+
+    def list_all_certifications(self) -> list[Certification]:
+        return (
+            self.db.query(Certification)
+            .order_by(Certification.created_at.desc())
+            .all()
+        )
+
+    def worker_has_patient_meeting(
+        self, worker_user_id: uuid.UUID, patient_user_id: uuid.UUID
+    ) -> bool:
+        return (
+            self.db.query(Meeting.id)
+            .filter(
+                Meeting.health_worker_id == worker_user_id,
+                Meeting.user_id == patient_user_id,
+            )
+            .first()
+            is not None
+        )
+
+    def list_patients_for_worker(self, worker_user_id: uuid.UUID) -> list[User]:
+        """Return distinct patients who have a meeting with this health worker.
+
+        The HealthWorker record for a logged-in worker is created with id == user.id
+        (via upsert_health_worker_profile or the seed), so Meeting.health_worker_id
+        directly matches the worker's User.id.
+        """
+        subquery = (
+            self.db.query(Meeting.user_id)
+            .filter(Meeting.health_worker_id == worker_user_id)
+            .distinct()
+            .subquery()
+        )
+        return (
+            self.db.query(User)
+            .filter(User.id.in_(subquery))
+            .order_by(User.first_name)
             .all()
         )

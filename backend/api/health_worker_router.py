@@ -1,12 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from backend.core.database import get_db
 from backend.core.dependencies import get_current_user
 from backend.models.user import User
 from backend.schema.health_worker import (
+    ActionStatusResponse,
     AssignCertificationRequest,
     AssignCertificationResponse,
     CertificationResponse,
@@ -19,16 +20,23 @@ from backend.schema.health_worker import (
     ScheduleMeetingResponse,
     TrainingProgramResponse,
     UserCertificationResponse,
+    WorkerPatientProfileResponse,
+    WorkerPatientResponse,
 )
 from backend.services.health_worker_service import (
     assign_certification_to_user,
     create_certification,
     enroll_training_program,
+    list_all_certifications,
     list_certifications_by_user,
     list_health_workers,
     list_training_programs,
     list_user_meetings,
+    list_worker_meetings,
+    list_worker_patients,
+    get_worker_patient_profile,
     schedule_meeting,
+    upload_worker_photo,
 )
 
 health_worker_router = APIRouter(tags=["health_workers"])
@@ -99,13 +107,26 @@ def create_meeting(
 @health_worker_router.get(
     "/meetings/my",
     response_model=list[MeetingResponse],
-    summary="List current user meetings",
+    summary="List current user meetings (as patient)",
 )
 def get_my_meetings(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     meetings = list_user_meetings(db=db, user_id=current_user.id)
+    return [MeetingResponse.model_validate(meeting) for meeting in meetings]
+
+
+@health_worker_router.get(
+    "/meetings/worker",
+    response_model=list[MeetingResponse],
+    summary="List meetings where current user is the health worker",
+)
+def get_worker_meetings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    meetings = list_worker_meetings(db=db, worker_user_id=current_user.id)
     return [MeetingResponse.model_validate(meeting) for meeting in meetings]
 
 
@@ -202,3 +223,62 @@ def list_user_certifications(
         )
         for row in user_certifications
     ]
+
+
+@health_worker_router.get(
+    "/training/certifications",
+    response_model=list[CertificationResponse],
+    summary="List all certifications",
+)
+def list_certifications(
+    db: Session = Depends(get_db),
+):
+    certs = list_all_certifications(db=db)
+    return [CertificationResponse.model_validate(c) for c in certs]
+
+
+@health_worker_router.get(
+    "/training/my-patients",
+    response_model=list[WorkerPatientResponse],
+    summary="List patients linked to the current health worker via meetings",
+)
+def get_my_patients(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return list_worker_patients(db=db, worker_user_id=current_user.id)
+
+
+@health_worker_router.get(
+    "/training/patients/{patient_user_id}/profile",
+    response_model=WorkerPatientProfileResponse,
+    summary="Patient profile for health worker (community, iCBT progress, mood from posts)",
+)
+def get_patient_profile_for_worker(
+    patient_user_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return get_worker_patient_profile(
+        db=db,
+        worker_user_id=current_user.id,
+        patient_user_id=patient_user_id,
+    )
+
+
+@health_worker_router.post(
+    "/health_workers/me/photo",
+    response_model=ActionStatusResponse,
+    summary="Upload a profile photo for the current health worker",
+)
+async def upload_my_photo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    photo_url = await upload_worker_photo(
+        db=db,
+        worker_user_id=current_user.id,
+        file=file,
+    )
+    return ActionStatusResponse(status=photo_url)

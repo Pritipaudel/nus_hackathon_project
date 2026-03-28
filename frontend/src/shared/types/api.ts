@@ -92,6 +92,7 @@ export interface HealthWorker {
 
 export interface Meeting {
   id: string;
+  user_id: string;
   health_worker_id: string;
   scheduled_at: string;
   status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';

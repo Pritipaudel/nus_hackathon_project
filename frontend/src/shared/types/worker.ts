@@ -1,4 +1,4 @@
-export type WorkerDashboardSection = 'overview' | 'patients' | 'meetings' | 'community';
+export type WorkerDashboardSection = 'overview' | 'patients' | 'meetings' | 'certifications' | 'community';
 
 export interface PatientMoodEntry {
   day: string;
