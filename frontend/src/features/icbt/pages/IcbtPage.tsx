@@ -1,62 +1,8 @@
 import { useState } from 'react';
 
-import type { IcbtProgram, MyProgram } from '@shared/types';
+import type { MyProgram } from '@shared/types';
 
-const MOCK_PROGRAMS: IcbtProgram[] = [
-  {
-    id: '1',
-    title: 'Understanding Anxiety',
-    description: 'Learn to identify anxiety triggers and apply cognitive restructuring. Covers thought records, behavioural experiments, and graded exposure.',
-    difficulty_level: 'Beginner',
-    duration_days: 21,
-    url: 'https://mindbridge.app/programs/anxiety',
-  },
-  {
-    id: '2',
-    title: 'Managing Low Mood',
-    description: 'Targets negative thought patterns associated with depression. Uses behavioural activation, thought challenging, and self-compassion exercises.',
-    difficulty_level: 'Beginner',
-    duration_days: 30,
-    url: 'https://mindbridge.app/programs/low-mood',
-  },
-  {
-    id: '3',
-    title: 'Sleep & Recovery',
-    description: 'Addresses sleep disturbances through cognitive and behavioural techniques including sleep restriction, stimulus control, and relaxation training.',
-    difficulty_level: 'Intermediate',
-    duration_days: 14,
-    url: 'https://mindbridge.app/programs/sleep',
-  },
-  {
-    id: '4',
-    title: 'Stress & Burnout Reset',
-    description: 'Identifies workplace and personal stressors. Builds boundary-setting skills, cognitive flexibility, and sustainable coping routines.',
-    difficulty_level: 'Intermediate',
-    duration_days: 28,
-    url: 'https://mindbridge.app/programs/burnout',
-  },
-  {
-    id: '5',
-    title: 'Trauma-Informed Stabilisation',
-    description: 'A foundational programme for trauma survivors. Focuses on grounding, safety planning, and emotion regulation before deeper processing.',
-    difficulty_level: 'Advanced',
-    duration_days: 42,
-    url: 'https://mindbridge.app/programs/trauma',
-  },
-  {
-    id: '6',
-    title: 'Self-Esteem & Identity',
-    description: 'Explores core beliefs and schemas driving low self-worth. Includes values clarification, self-compassion practice, and assertiveness training.',
-    difficulty_level: 'Intermediate',
-    duration_days: 21,
-    url: 'https://mindbridge.app/programs/self-esteem',
-  },
-];
-
-const MOCK_MY_PROGRAMS: MyProgram[] = [
-  { program_id: '1', status: 'ACTIVE', progress_percent: 45 },
-  { program_id: '3', status: 'COMPLETED', progress_percent: 100 },
-];
+import { ICBT_PROGRAMS, ICBT_MY_PROGRAMS } from '@shared/constants';
 
 type FilterTab = 'all' | 'enrolled' | 'completed' | 'available';
 type DifficultyFilter = 'all' | 'Beginner' | 'Intermediate' | 'Advanced';
@@ -72,23 +18,23 @@ const IcbtPage = () => {
   const [difficulty, setDifficulty] = useState<DifficultyFilter>('all');
   const [search, setSearch] = useState('');
   const [enrolledIds, setEnrolledIds] = useState<Set<string>>(
-    new Set(MOCK_MY_PROGRAMS.map((p) => p.program_id)),
+    new Set(ICBT_MY_PROGRAMS.map((p) => p.program_id)),
   );
   const [completedIds, setCompletedIds] = useState<Set<string>>(
-    new Set(MOCK_MY_PROGRAMS.filter((p) => p.status === 'COMPLETED').map((p) => p.program_id)),
+    new Set(ICBT_MY_PROGRAMS.filter((p) => p.status === 'COMPLETED').map((p) => p.program_id)),
   );
   const [progress, setProgress] = useState<Record<string, number>>(
-    Object.fromEntries(MOCK_MY_PROGRAMS.map((p) => [p.program_id, p.progress_percent])),
+    Object.fromEntries(ICBT_MY_PROGRAMS.map((p) => [p.program_id, p.progress_percent])),
   );
   const [enrolling, setEnrolling] = useState<string | null>(null);
 
-  const myPrograms: MyProgram[] = MOCK_PROGRAMS.filter((p) => enrolledIds.has(p.id)).map((p) => ({
+  const myPrograms: MyProgram[] = ICBT_PROGRAMS.filter((p) => enrolledIds.has(p.id)).map((p) => ({
     program_id: p.id,
     status: completedIds.has(p.id) ? 'COMPLETED' : 'ACTIVE',
     progress_percent: progress[p.id] ?? 0,
   }));
 
-  const filtered = MOCK_PROGRAMS.filter((p) => {
+  const filtered = ICBT_PROGRAMS.filter((p) => {
     if (tab === 'enrolled' && !enrolledIds.has(p.id)) return false;
     if (tab === 'completed' && !completedIds.has(p.id)) return false;
     if (tab === 'available' && enrolledIds.has(p.id)) return false;
@@ -110,10 +56,10 @@ const IcbtPage = () => {
     myPrograms.find((p) => p.program_id === id);
 
   const tabs: { id: FilterTab; label: string; count: number }[] = [
-    { id: 'all', label: 'All programmes', count: MOCK_PROGRAMS.length },
+    { id: 'all', label: 'All programmes', count: ICBT_PROGRAMS.length },
     { id: 'enrolled', label: 'Enrolled', count: enrolledIds.size },
     { id: 'completed', label: 'Completed', count: completedIds.size },
-    { id: 'available', label: 'Available', count: MOCK_PROGRAMS.length - enrolledIds.size },
+    { id: 'available', label: 'Available', count: ICBT_PROGRAMS.length - enrolledIds.size },
   ];
 
   return (

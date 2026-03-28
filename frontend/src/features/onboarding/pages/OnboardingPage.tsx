@@ -4,9 +4,6 @@ import { useAuthStore } from '@shared/stores/authStore';
 
 import { useCompleteOnboarding } from '@features/auth/hooks/useCompleteOnboarding';
 
-import type { OnboardingResponse } from '@shared/types';
-
-import { useSubmitOnboarding } from '../hooks/useSubmitOnboarding';
 
 /* ── Step data ───────────────────────────────── */
 const CULTURAL_BACKGROUNDS = [
@@ -76,10 +73,7 @@ const STEP_LABELS = [
 /* ── Component ───────────────────────────────── */
 const OnboardingPage = () => {
   const user = useAuthStore((s) => s.user);
-  const { mutate: completeOnboarding, isPending: isCompleting } = useCompleteOnboarding();
-  const { mutate: submitOnboarding, isPending: isSubmitting } = useSubmitOnboarding();
-
-  const isPending = isSubmitting || isCompleting;
+  const { mutate: completeOnboarding, isPending } = useCompleteOnboarding();
 
   const [step, setStep] = useState<Step>(0);
   const [cultural, setCultural] = useState('');
@@ -108,20 +102,10 @@ const OnboardingPage = () => {
     return true;
   };
 
-  const buildResponses = (): OnboardingResponse[] => [
-    { question_key: 'cultural_background', answer: cultural },
-    { question_key: 'mood_level', answer: moodLevel },
-    { question_key: 'concerns', answer: concerns },
-    { question_key: 'community_concerns', answer: communityConcerns },
-    { question_key: 'support_preference', answer: supportPref },
-    { question_key: 'therapy_experience', answer: experience },
-  ];
 
   const handleNext = () => {
     if (isLast) {
-      submitOnboarding(buildResponses(), {
-        onSuccess: () => completeOnboarding(),
-      });
+      completeOnboarding();
       return;
     }
     setStep((s) => (s + 1) as Step);
