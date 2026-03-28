@@ -17,10 +17,13 @@ const MEETING_WORKER_PHOTO: Record<string, string | undefined> = {
 
 type Section = 'home' | 'programs' | 'community' | 'community-hub' | 'workers' | 'training';
 
-const NAV_ITEMS: { id: Section; label: string }[] = [
+const PRIMARY_NAV: { id: Section; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'programs', label: 'iCBT Programmes' },
   { id: 'community', label: 'Community Feed' },
+];
+
+const SECONDARY_NAV: { id: Section; label: string }[] = [
   { id: 'community-hub', label: 'My Community' },
   { id: 'workers', label: 'Health Workers' },
   { id: 'training', label: 'Training' },
@@ -39,6 +42,7 @@ const formatMeetingDate = (iso: string) =>
 const DashboardPage = () => {
   const { user, clearAuth } = useAuthStore();
   const [section, setSection] = useState<Section>('home');
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useMe();
 
@@ -65,7 +69,7 @@ const DashboardPage = () => {
         </div>
 
         <nav className="ds-nav">
-          {NAV_ITEMS.map((item) => (
+          {PRIMARY_NAV.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -75,6 +79,38 @@ const DashboardPage = () => {
               {item.label}
             </button>
           ))}
+
+          <div className="ds-nav__more">
+            <button
+              type="button"
+              className={`ds-nav__item ds-nav__item--more ${moreOpen || SECONDARY_NAV.some(i => i.id === section) ? 'ds-nav__item--active' : ''}`}
+              onClick={() => setMoreOpen(!moreOpen)}
+              aria-expanded={moreOpen}
+            >
+              <span>More</span>
+              <svg className={`ds-nav__chevron ${moreOpen ? 'ds-nav__chevron--open' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {moreOpen && (
+              <div className="ds-nav__dropdown">
+                {SECONDARY_NAV.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`ds-nav__item ds-nav__item--sub ${section === item.id ? 'ds-nav__item--active' : ''}`}
+                    onClick={() => {
+                      setSection(item.id);
+                      setMoreOpen(false);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
 
         <div className="ds-sidebar__footer">

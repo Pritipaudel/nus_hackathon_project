@@ -7,6 +7,7 @@ import { useCompleteOnboarding } from '@features/auth/hooks/useCompleteOnboardin
 
 /* ── Step data ───────────────────────────────── */
 const CULTURAL_BACKGROUNDS = [
+  'Nepalese',
   'Chinese / Singaporean Chinese',
   'Malay / Singaporean Malay',
   'Indian / Singaporean Indian',

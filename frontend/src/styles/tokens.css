@@ -1,71 +1,82 @@
 :root {
-  --color-primary:        #16a34a;
-  --color-primary-hover:  #15803d;
-  --color-primary-active: #166534;
-  --color-primary-light:  #dcfce7;
-  --color-primary-subtle: #f0fdf4;
+  /* ── Digital Sanctuary Color Palette ─────────────── */
+  --color-primary:        #7C9A8E;
+  --color-primary-hover:  #6B8A7D;
+  --color-primary-active: #5A7A6C;
+  --color-primary-light:  #E8F0EC;
+  --color-primary-subtle: #F4F8F6;
 
-  --color-danger:       #dc2626;
-  --color-danger-hover: #b91c1c;
-  --color-success:      #16a34a;
-  --color-warning:      #d97706;
+  --color-accent:         #B8C1EC;
+  --color-accent-hover:   #A5B0E0;
+  --color-accent-light:   #ECEEF8;
 
-  --color-bg:            #ffffff;
-  --color-bg-subtle:     #f8fafc;
-  --color-bg-muted:      #f1f5f9;
-  --color-border:        #e2e8f0;
-  --color-border-strong: #cbd5e1;
+  --color-danger:       #C97E7E;
+  --color-danger-hover: #B86E6E;
+  --color-success:      #7C9A8E;
+  --color-warning:      #C9A87E;
 
-  --color-text:         #0f172a;
-  --color-text-muted:   #475569;
-  --color-text-subtle:  #94a3b8;
-  --color-text-inverse: #ffffff;
+  --color-bg:            #FAFCFD;
+  --color-bg-subtle:     #F0F4F8;
+  --color-bg-muted:      #E8ECF2;
+  --color-border:        #DFE5ED;
+  --color-border-strong: #CDD5E0;
 
-  --radius-sm:   4px;
-  --radius-md:   8px;
-  --radius-lg:   14px;
-  --radius-xl:   20px;
+  --color-text:         #4A6670;
+  --color-text-primary: #4A6670;
+  --color-text-muted:   #6B8490;
+  --color-text-subtle:  #94A5AE;
+  --color-text-inverse: #FAFCFD;
+
+  /* ── High-Breathability Spacing (12px grid) ──────── */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-2xl:  32px;
   --radius-full: 9999px;
 
-  --space-1:  4px;
-  --space-2:  8px;
-  --space-3:  12px;
-  --space-4:  16px;
-  --space-5:  20px;
-  --space-6:  24px;
-  --space-8:  32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
+  --space-1:  6px;
+  --space-2:  12px;
+  --space-3:  18px;
+  --space-4:  24px;
+  --space-5:  30px;
+  --space-6:  36px;
+  --space-8:  48px;
+  --space-10: 60px;
+  --space-12: 72px;
+  --space-16: 96px;
 
-  --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, sans-serif;
+  /* ── Typography ──────────────────────────────────── */
+  --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
 
-  --font-size-xs:  0.75rem;
-  --font-size-sm:  0.875rem;
-  --font-size-md:  1rem;
-  --font-size-lg:  1.125rem;
-  --font-size-xl:  1.25rem;
-  --font-size-2xl: 1.5rem;
-  --font-size-3xl: 1.875rem;
-  --font-size-4xl: 2.25rem;
+  --font-size-xs:  0.8125rem;
+  --font-size-sm:  0.9375rem;
+  --font-size-md:  1.0625rem;
+  --font-size-lg:  1.1875rem;
+  --font-size-xl:  1.375rem;
+  --font-size-2xl: 1.625rem;
+  --font-size-3xl: 2rem;
+  --font-size-4xl: 2.5rem;
 
   --font-weight-normal:   400;
   --font-weight-medium:   500;
   --font-weight-semibold: 600;
   --font-weight-bold:     700;
 
-  --line-height-tight:   1.25;
-  --line-height-normal:  1.5;
-  --line-height-relaxed: 1.75;
+  --line-height-tight:   1.35;
+  --line-height-normal:  1.6;
+  --line-height-relaxed: 1.8;
 
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-  --shadow-md: 0 4px 16px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 32px -4px rgb(0 0 0 / 0.1),  0 4px 10px -4px rgb(0 0 0 / 0.06);
+  /* ── Soft Shadows (no harsh edges) ───────────────── */
+  --shadow-sm: 0 2px 8px -2px rgb(74 102 112 / 0.06);
+  --shadow-md: 0 6px 20px -4px rgb(74 102 112 / 0.08);
+  --shadow-lg: 0 12px 36px -8px rgb(74 102 112 / 0.10);
+  --shadow-glow: 0 0 24px -4px rgb(124 154 142 / 0.15);
 
-  --transition-fast: 100ms ease;
-  --transition-base: 160ms ease;
-  --transition-slow: 300ms ease;
+  --transition-fast: 150ms ease-out;
+  --transition-base: 250ms ease-out;
+  --transition-slow: 400ms ease-out;
 
-  --navbar-height: 64px;
+  --navbar-height: 72px;
 }

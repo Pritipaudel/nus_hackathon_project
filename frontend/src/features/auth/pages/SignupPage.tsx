@@ -30,8 +30,30 @@ const SignupPage = () => {
   return (
     <div className="auth-page">
       <div className="auth-page__panel">
-        <div className="auth-page__panel-logo">N</div>
-        <h2 className="auth-page__panel-title">Join NUS Hackathon 2026</h2>
+        <div className="auth-page__panel-logo">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        </div>
+        <h2 className="auth-page__panel-title">Join MindBridge</h2>
+        <p className="auth-page__panel-sub">
+          Start your journey toward better mental health. We're here to support you every step of the way.
+        </p>
+
+        <div className="auth-page__panel-illustration">
+          <svg viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="100" cy="110" rx="80" ry="8" fill="rgba(255,255,255,0.1)" />
+            <path d="M60 90 Q70 60, 100 55 Q130 60, 140 90" stroke="rgba(255,255,255,0.3)" strokeWidth="2" fill="none" />
+            <circle cx="100" cy="45" r="20" fill="rgba(255,255,255,0.15)" />
+            <path d="M92 42 Q100 50, 108 42" stroke="rgba(255,255,255,0.5)" strokeWidth="2" fill="none" strokeLinecap="round" />
+            <circle cx="93" cy="38" r="2" fill="rgba(255,255,255,0.5)" />
+            <circle cx="107" cy="38" r="2" fill="rgba(255,255,255,0.5)" />
+            <path d="M50 75 L55 70 L60 75" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" fill="none" />
+            <path d="M140 75 L145 70 L150 75" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" fill="none" />
+            <circle cx="40" cy="50" r="3" fill="rgba(255,255,255,0.15)" />
+            <circle cx="160" cy="55" r="4" fill="rgba(255,255,255,0.15)" />
+          </svg>
+        </div>
       </div>
 
       <div className="auth-page__form-side">

@@ -4,7 +4,6 @@ import {
   COMMUNITY_CATEGORIES,
   COMMUNITY_CATEGORY_COLORS,
   COMMUNITY_MOCK_POSTS,
-  COMMUNITY_MOCK_TRENDING,
 } from '@shared/constants';
 
 const timeAgo = (iso: string): string => {
@@ -24,6 +23,12 @@ const CommunityPage = () => {
   const [counts, setCounts] = useState<Record<string, number>>(
     Object.fromEntries(COMMUNITY_MOCK_POSTS.map((p) => [p.id, p.upvotes])),
   );
+  const [likes, setLikes] = useState<Record<string, boolean>>(
+    Object.fromEntries(COMMUNITY_MOCK_POSTS.map((p) => [p.id, false])),
+  );
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>(
+    Object.fromEntries(COMMUNITY_MOCK_POSTS.map((p) => [p.id, Math.floor(p.upvotes * 0.6)])),
+  );
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [showCompose, setShowCompose] = useState(false);
   const [content, setContent] = useState('');
@@ -36,6 +41,11 @@ const CommunityPage = () => {
   const filtered = posts.filter(
     (p) => activeCategory === 'ALL' || p.category === activeCategory,
   );
+
+  // Trending posts sorted by likes
+  const trending = [...posts]
+    .sort((a, b) => (likeCounts[b.id] ?? 0) - (likeCounts[a.id] ?? 0))
+    .slice(0, 5);
 
   const handleVote = (postId: string, dir: 'up' | 'down') => {
     setVotes((prev) => {
@@ -52,6 +62,17 @@ const CommunityPage = () => {
         return c;
       });
       return { ...prev, [postId]: next };
+    });
+  };
+
+  const handleLike = (postId: string) => {
+    setLikes((prev) => {
+      const wasLiked = prev[postId];
+      setLikeCounts((c) => ({
+        ...c,
+        [postId]: (c[postId] ?? 0) + (wasLiked ? -1 : 1),
+      }));
+      return { ...prev, [postId]: !wasLiked };
     });
   };
 
@@ -80,6 +101,8 @@ const CommunityPage = () => {
       setPosts((prev) => [newPost, ...prev]);
       setCounts((c) => ({ ...c, [newPost.id]: 0 }));
       setVotes((v) => ({ ...v, [newPost.id]: null }));
+      setLikes((l) => ({ ...l, [newPost.id]: false }));
+      setLikeCounts((lc) => ({ ...lc, [newPost.id]: 0 }));
       setContent('');
       setCategory('GENERAL');
       setFile(null);
@@ -261,6 +284,16 @@ const CommunityPage = () => {
                 )}
 
                 <div className="cp-post__action-bar">
+                  <button
+                    type="button"
+                    className={`cp-action cp-action--like ${likes[post.id] ? 'cp-action--liked' : ''}`}
+                    onClick={() => handleLike(post.id)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill={likes[post.id] ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                    {likeCounts[post.id] ?? 0} {(likeCounts[post.id] ?? 0) === 1 ? 'Like' : 'Likes'}
+                  </button>
                   <button type="button" className="cp-action">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -319,14 +352,24 @@ const CommunityPage = () => {
         </div>
 
         <div className="cp-sidebar__card">
-          <div className="cp-sidebar__card-header">Trending</div>
+          <div className="cp-sidebar__card-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+            Trending
+          </div>
           <div className="cp-sidebar__card-body">
-            {COMMUNITY_MOCK_TRENDING.map((t, i) => (
+            {trending.map((t, i) => (
               <div key={t.id} className="cp-trending-item">
                 <span className="cp-trending-item__rank">{i + 1}</span>
                 <div className="cp-trending-item__body">
-                  <p className="cp-trending-item__text">{t.content}</p>
-                  <span className="cp-trending-item__score">{t.trend_score} upvotes</span>
+                  <p className="cp-trending-item__text">{t.content.slice(0, 80)}{t.content.length > 80 ? '...' : ''}</p>
+                  <span className="cp-trending-item__score">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                    {likeCounts[t.id] ?? 0} likes
+                  </span>
                 </div>
               </div>
             ))}
