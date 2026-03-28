@@ -1,4 +1,20 @@
-export type { ApiResponse, PaginatedResponse, ApiError, PaginationParams } from './api';
+export type {
+  ApiResponse,
+  PaginatedResponse,
+  ApiError,
+  PaginationParams,
+  IcbtProgram,
+  MyProgram,
+  CommunityPost,
+  TrendingPost,
+  HealthWorker,
+  Meeting,
+  TrainingProgram,
+  Certification,
+  TrendingIssue,
+  OnboardingResponse,
+  UserProfile,
+} from './api';
 export type { User, TokenResponse, AuthResponse, LoginRequest, SignupRequest } from './auth';
 export type { Environment, EnvConfig } from './env';
 export type { HealthStatus, HealthResponse } from './health';
