@@ -5,91 +5,26 @@ import { useAuthStore } from '@shared/stores/authStore';
 import { useMe } from '@features/auth/hooks/useMe';
 import IcbtPage from '@features/icbt/pages/IcbtPage';
 import CommunityPage from '@features/community/pages/CommunityPage';
+import HealthWorkersPage from '@features/workers/pages/HealthWorkersPage';
+import TrainingPage from '@features/training/pages/TrainingPage';
+import { DASHBOARD_UPCOMING_MEETINGS, WORKER_PHOTOS } from '@shared/constants';
 
-type Section = 'home' | 'programs' | 'community' | 'workers' | 'meetings';
+const MEETING_WORKER_PHOTO: Record<string, string | undefined> = {
+  'Dr. Priya Nair': WORKER_PHOTOS['1'],
+  'Ahmad Farouk': WORKER_PHOTOS['2'],
+};
 
-const MOCK_PROGRAMS = [
-  {
-    id: '1',
-    title: 'Understanding Anxiety',
-    description: 'A structured iCBT programme to identify anxiety triggers and build coping strategies using cognitive restructuring techniques.',
-    difficulty_level: 'Beginner',
-    duration_days: 21,
-    url: 'https://mindbridge.app/programs/anxiety',
-  },
-  {
-    id: '2',
-    title: 'Managing Low Mood',
-    description: 'Evidence-based modules targeting negative thought patterns associated with depression and persistent low mood.',
-    difficulty_level: 'Beginner',
-    duration_days: 30,
-    url: 'https://mindbridge.app/programs/low-mood',
-  },
-  {
-    id: '3',
-    title: 'Sleep & Recovery',
-    description: 'Cognitive and behavioural techniques specifically designed to address sleep disturbances and restore healthy sleep patterns.',
-    difficulty_level: 'Intermediate',
-    duration_days: 14,
-    url: 'https://mindbridge.app/programs/sleep',
-  },
-  {
-    id: '4',
-    title: 'Stress & Burnout Reset',
-    description: 'A focused programme on identifying workplace and personal stressors, setting boundaries, and building resilience.',
-    difficulty_level: 'Intermediate',
-    duration_days: 28,
-    url: 'https://mindbridge.app/programs/burnout',
-  },
-];
-
-const MOCK_POSTS = [
-  {
-    id: '1',
-    username: 'anonymous_841',
-    content: 'Started the anxiety programme last week. The thought records are harder than I expected but I can already see patterns I never noticed before.',
-    category: 'ANXIETY',
-    is_verified: false,
-    created_at: '2026-03-27T09:14:00Z',
-  },
-  {
-    id: '2',
-    username: 'anonymous_293',
-    content: 'Family pressure around career choices is making everything heavier. Good to see others here navigate the same cultural expectations.',
-    category: 'STRESS',
-    is_verified: false,
-    created_at: '2026-03-27T11:40:00Z',
-  },
-  {
-    id: '3',
-    username: 'worker_12',
-    content: 'Reminder that sleep hygiene is foundational. Before anything else, protect your rest. The programmes build on it.',
-    category: 'SLEEP',
-    is_verified: true,
-    created_at: '2026-03-26T18:22:00Z',
-  },
-];
-
-const MOCK_WORKERS = [
-  { id: '1', username: 'Dr. Priya Nair', organization: 'IMH Singapore', is_verified: true },
-  { id: '2', username: 'Ahmad Farouk', organization: 'SAMH', is_verified: true },
-  { id: '3', username: 'Chen Wei', organization: 'Fei Yue Community Services', is_verified: true },
-];
-
-const MOCK_MEETINGS = [
-  { id: '1', worker: 'Dr. Priya Nair', scheduled_at: '2026-03-30T10:00:00Z', status: 'SCHEDULED' },
-  { id: '2', worker: 'Ahmad Farouk', scheduled_at: '2026-04-02T14:00:00Z', status: 'SCHEDULED' },
-];
+type Section = 'home' | 'programs' | 'community' | 'workers' | 'training';
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'programs', label: 'iCBT Programmes' },
   { id: 'community', label: 'Community' },
   { id: 'workers', label: 'Health Workers' },
-  { id: 'meetings', label: 'Meetings' },
+  { id: 'training', label: 'Training' },
 ];
 
-const formatDate = (iso: string) =>
+const formatMeetingDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-SG', {
     weekday: 'short',
     day: 'numeric',
@@ -114,13 +49,6 @@ const DashboardPage = () => {
     ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
     : '?';
 
-  const joinedDate = user
-    ? new Date(user.created_at).toLocaleDateString('en-SG', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '—';
 
   return (
     <div className="ds-shell">
@@ -164,65 +92,249 @@ const DashboardPage = () => {
       <main className="ds-main">
         {section === 'home' && (
           <div className="ds-section">
-            <div className="ds-page-header">
-              <h1>Welcome back, {user?.first_name}</h1>
-              <p>Here is your overview for today.</p>
-            </div>
-
-            <div className="ds-stat-grid">
-              <div className="ds-stat">
-                <p className="ds-stat__label">Account</p>
-                <p className="ds-stat__value ds-stat__value--green">Active</p>
+            <div className="dh-header">
+              <div>
+                <h1 className="dh-header__title">Welcome back, {user?.first_name}</h1>
+                <p className="dh-header__sub">Here is your progress overview for today.</p>
               </div>
-              <div className="ds-stat">
-                <p className="ds-stat__label">Member since</p>
-                <p className="ds-stat__value">{joinedDate}</p>
-              </div>
-              <div className="ds-stat">
-                <p className="ds-stat__label">Programmes enrolled</p>
-                <p className="ds-stat__value">0</p>
-              </div>
-              <div className="ds-stat">
-                <p className="ds-stat__label">Upcoming meetings</p>
-                <p className="ds-stat__value">{MOCK_MEETINGS.length}</p>
+              <div className="dh-header__date">
+                {new Date().toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'long' })}
               </div>
             </div>
 
-            <div className="ds-row">
-              <div className="ds-panel ds-panel--flex1">
-                <h3 className="ds-panel__title">Recommended for you</h3>
-                <div className="ds-program-list">
-                  {MOCK_PROGRAMS.slice(0, 2).map((p) => (
-                    <div key={p.id} className="ds-program-row">
-                      <div className="ds-program-row__info">
-                        <span className="ds-program-row__title">{p.title}</span>
-                        <span className="ds-program-row__meta">{p.duration_days} days · {p.difficulty_level}</span>
+            {/* Stat cards */}
+            <div className="dh-stats">
+              <div className="dh-stat dh-stat--green">
+                <div className="dh-stat__icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="dh-stat__label">Overall progress</p>
+                  <p className="dh-stat__value">62%</p>
+                </div>
+              </div>
+              <div className="dh-stat dh-stat--blue">
+                <div className="dh-stat__icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="dh-stat__label">Programmes enrolled</p>
+                  <p className="dh-stat__value">2</p>
+                </div>
+              </div>
+              <div className="dh-stat dh-stat--amber">
+                <div className="dh-stat__icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="dh-stat__label">Upcoming meetings</p>
+                  <p className="dh-stat__value">{DASHBOARD_UPCOMING_MEETINGS.length}</p>
+                </div>
+              </div>
+              <div className="dh-stat dh-stat--purple">
+                <div className="dh-stat__icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="6" /><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="dh-stat__label">Certifications</p>
+                  <p className="dh-stat__value">1</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Progress + mood row */}
+            <div className="dh-row">
+              {/* Active programmes */}
+              <div className="dh-panel dh-panel--flex2">
+                <div className="dh-panel__head">
+                  <span className="dh-panel__title">Active programmes</span>
+                  <button type="button" className="dh-panel__link" onClick={() => setSection('programs')}>View all</button>
+                </div>
+                <div className="dh-prog-list">
+                  <div className="dh-prog-item">
+                    <div className="dh-prog-item__info">
+                      <p className="dh-prog-item__name">Understanding Anxiety</p>
+                      <p className="dh-prog-item__meta">Day 10 of 21 · Beginner</p>
+                    </div>
+                    <div className="dh-prog-item__right">
+                      <span className="dh-prog-item__pct">45%</span>
+                      <div className="dh-prog-bar">
+                        <div className="dh-prog-bar__fill dh-prog-bar__fill--green" style={{ width: '45%' }} />
                       </div>
-                      <a href={p.url} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
-                        View
-                      </a>
+                    </div>
+                  </div>
+                  <div className="dh-prog-item">
+                    <div className="dh-prog-item__info">
+                      <p className="dh-prog-item__name">Sleep &amp; Recovery</p>
+                      <p className="dh-prog-item__meta">Completed · Intermediate</p>
+                    </div>
+                    <div className="dh-prog-item__right">
+                      <span className="dh-prog-item__pct dh-prog-item__pct--done">Done</span>
+                      <div className="dh-prog-bar">
+                        <div className="dh-prog-bar__fill dh-prog-bar__fill--green" style={{ width: '100%' }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="dh-prog-item dh-prog-item--recommended">
+                    <div className="dh-prog-item__info">
+                      <p className="dh-prog-item__name">Managing Low Mood</p>
+                      <p className="dh-prog-item__meta">Recommended · Beginner · 30 days</p>
+                    </div>
+                    <div className="dh-prog-item__right">
+                      <button type="button" className="btn btn-primary btn-sm" onClick={() => setSection('programs')}>Start</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mood tracker */}
+              <div className="dh-panel dh-panel--flex1">
+                <div className="dh-panel__head">
+                  <span className="dh-panel__title">Mood this week</span>
+                </div>
+                <div className="dh-mood-chart">
+                  {[
+                    { day: 'Mon', mood: 3, label: 'Okay' },
+                    { day: 'Tue', mood: 4, label: 'Good' },
+                    { day: 'Wed', mood: 2, label: 'Low' },
+                    { day: 'Thu', mood: 4, label: 'Good' },
+                    { day: 'Fri', mood: 5, label: 'Great' },
+                    { day: 'Sat', mood: 3, label: 'Okay' },
+                    { day: 'Sun', mood: 4, label: 'Good' },
+                  ].map(({ day, mood, label }) => {
+                    const colorClass = mood >= 4 ? 'high' : mood === 3 ? 'mid' : 'low';
+                    const heightPct = (mood / 5) * 100;
+                    return (
+                      <div key={day} className="dh-mood-bar-col">
+                        <span className="dh-mood-bar-col__pct">{label}</span>
+                        <div className="dh-mood-bar-col__track">
+                          <div
+                            className={`dh-mood-bar-col__fill dh-mood-bar-col__fill--${colorClass}`}
+                            style={{ height: `${heightPct}%` }}
+                          />
+                        </div>
+                        <span className="dh-mood-bar-col__day">{day}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="dh-mood-legend">
+                  <span className="dh-mood-legend__item dh-mood-legend__item--high">Great / Good</span>
+                  <span className="dh-mood-legend__item dh-mood-legend__item--mid">Okay</span>
+                  <span className="dh-mood-legend__item dh-mood-legend__item--low">Low</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Meetings + activity row */}
+            <div className="dh-row">
+              {/* Upcoming meetings */}
+              <div className="dh-panel dh-panel--flex1">
+                <div className="dh-panel__head">
+                  <span className="dh-panel__title">Upcoming meetings</span>
+                  <button type="button" className="dh-panel__link" onClick={() => setSection('workers')}>Book session</button>
+                </div>
+                {DASHBOARD_UPCOMING_MEETINGS.length === 0 ? (
+                  <p className="dh-empty">No meetings scheduled.</p>
+                ) : (
+                  <div className="dh-meeting-list">
+                    {DASHBOARD_UPCOMING_MEETINGS.map((m) => {
+                      const photo = MEETING_WORKER_PHOTO[m.worker];
+                      return (
+                        <div key={m.id} className="dh-meeting-row">
+                          {photo ? (
+                            <img src={photo} alt={m.worker} className="dh-meeting-row__avatar dh-meeting-row__avatar--photo" />
+                          ) : (
+                            <div className="dh-meeting-row__avatar">
+                              {m.worker.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                            </div>
+                          )}
+                          <div className="dh-meeting-row__info">
+                            <p className="dh-meeting-row__name">{m.worker}</p>
+                            <p className="dh-meeting-row__time">{formatMeetingDate(m.scheduled_at)}</p>
+                          </div>
+                          <span className="dh-meeting-row__badge">{m.status}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent activity */}
+              <div className="dh-panel dh-panel--flex1">
+                <div className="dh-panel__head">
+                  <span className="dh-panel__title">Recent activity</span>
+                </div>
+                <div className="dh-activity-list">
+                  {[
+                    { label: 'Completed module 5 — Anxiety programme', time: '2h ago', type: 'complete' },
+                    { label: 'Posted in community — Anxiety', time: '5h ago', type: 'post' },
+                    { label: 'Booked session with Dr. Priya Nair', time: '1d ago', type: 'meeting' },
+                    { label: 'Earned certificate — Mental Health Awareness', time: '3d ago', type: 'cert' },
+                  ].map((a, i) => (
+                    <div key={i} className="dh-activity-row">
+                      <div className={`dh-activity-row__dot dh-activity-row__dot--${a.type}`} />
+                      <div className="dh-activity-row__body">
+                        <p className="dh-activity-row__label">{a.label}</p>
+                        <p className="dh-activity-row__time">{a.time}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="ds-panel ds-panel--flex1">
-                <h3 className="ds-panel__title">Upcoming meetings</h3>
-                {MOCK_MEETINGS.length === 0 ? (
-                  <p className="ds-empty">No meetings scheduled.</p>
-                ) : (
-                  <div className="ds-meeting-list">
-                    {MOCK_MEETINGS.map((m) => (
-                      <div key={m.id} className="ds-meeting-row">
-                        <div>
-                          <p className="ds-meeting-row__worker">{m.worker}</p>
-                          <p className="ds-meeting-row__time">{formatDate(m.scheduled_at)}</p>
-                        </div>
-                        <span className="ds-badge ds-badge--green">{m.status}</span>
-                      </div>
-                    ))}
+              {/* Training certification */}
+              <div className="dh-panel dh-panel--flex1">
+                <div className="dh-panel__head">
+                  <span className="dh-panel__title">Latest certificate</span>
+                  <button type="button" className="dh-panel__link" onClick={() => setSection('training')}>View all</button>
+                </div>
+                <div className="dh-cert-card">
+                  <div className="dh-cert-card__icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="8" r="6" /><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+                    </svg>
                   </div>
-                )}
+                  <p className="dh-cert-card__name">Mental Health Awareness</p>
+                  <p className="dh-cert-card__org">Issued by WHO · Nov 2025</p>
+                  <span className="dh-cert-card__badge">Verified</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick actions */}
+            <div className="dh-panel">
+              <div className="dh-panel__head">
+                <span className="dh-panel__title">Quick actions</span>
+              </div>
+              <div className="dh-actions">
+                {(
+                  [
+                    { label: 'Continue programme', sub: 'Understanding Anxiety — Day 10', section: 'programs' as Section },
+                    { label: 'Browse community', sub: 'See what others are sharing', section: 'community' as Section },
+                    { label: 'Find a health worker', sub: 'Book a session with a counsellor', section: 'workers' as Section },
+                    { label: 'Explore training', sub: 'Earn a new certification', section: 'training' as Section },
+                  ] as { label: string; sub: string; section: Section }[]
+                ).map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    className="dh-action-card"
+                    onClick={() => setSection(a.section)}
+                  >
+                    <p className="dh-action-card__label">{a.label}</p>
+                    <p className="dh-action-card__sub">{a.sub}</p>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -232,56 +344,9 @@ const DashboardPage = () => {
 
         {section === 'community' && <CommunityPage />}
 
-        {section === 'workers' && (
-          <div className="ds-section">
-            <div className="ds-page-header">
-              <h1>Health Workers</h1>
-              <p>Connect with trained and verified community health workers.</p>
-            </div>
-            <div className="ds-worker-grid">
-              {MOCK_WORKERS.map((w) => (
-                <div key={w.id} className="ds-worker-card">
-                  <div className="ds-worker-card__avatar">{w.username.split(' ').map((n) => n[0]).join('').slice(0, 2)}</div>
-                  <div className="ds-worker-card__info">
-                    <p className="ds-worker-card__name">{w.username}</p>
-                    <p className="ds-worker-card__org">{w.organization}</p>
-                    {w.is_verified && <span className="ds-badge ds-badge--green">Verified</span>}
-                  </div>
-                  <button type="button" className="btn btn-primary btn-sm ds-worker-card__cta">
-                    Book session
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {section === 'workers' && <HealthWorkersPage />}
 
-        {section === 'meetings' && (
-          <div className="ds-section">
-            <div className="ds-page-header">
-              <h1>Meetings</h1>
-              <p>Your scheduled sessions with health workers.</p>
-            </div>
-            <div className="ds-meeting-table">
-              {MOCK_MEETINGS.length === 0 ? (
-                <p className="ds-empty">No meetings yet. Book a session from the Health Workers tab.</p>
-              ) : (
-                MOCK_MEETINGS.map((m) => (
-                  <div key={m.id} className="ds-meeting-card">
-                    <div className="ds-meeting-card__info">
-                      <p className="ds-meeting-card__worker">{m.worker}</p>
-                      <p className="ds-meeting-card__time">{formatDate(m.scheduled_at)}</p>
-                    </div>
-                    <div className="ds-meeting-card__right">
-                      <span className="ds-badge ds-badge--green">{m.status}</span>
-                      <button type="button" className="btn btn-secondary btn-sm">Join</button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
+        {section === 'training' && <TrainingPage />}
       </main>
     </div>
   );
