@@ -30,98 +30,81 @@ const LoginPage = () => {
     error instanceof Error ? error.message : error ? 'Login failed. Try again.' : null;
 
   return (
-    <div className="auth-page">
-      <div className="auth-page__panel">
-        <div className="auth-page__panel-logo">N</div>
-        <h2 className="auth-page__panel-title">NUS Hackathon 2026</h2>
-        <p className="auth-page__panel-sub">
-          Sign in to access your dashboard and manage your hackathon project.
+    <div className="auth-page" id="login-page">
+      <div className="auth-card">
+        <div className="auth-card__icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        </div>
+
+        <div className="auth-card__header">
+          <h1 className="auth-card__title">Welcome back</h1>
+          <p className="auth-card__subtitle">
+            Your safe space is waiting for you.
+          </p>
+        </div>
+
+        {registered && (
+          <div className="alert alert--success" role="status">
+            Your account is ready. Sign in to begin your journey.
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="alert alert--error" role="alert">
+            {errorMessage}
+          </div>
+        )}
+
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          <div className="input-wrapper">
+            <label className="input-label" htmlFor="login-email">
+              Email address
+            </label>
+            <input
+              id="login-email"
+              className="input-field"
+              type="email"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={set('email')}
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="input-wrapper">
+            <label className="input-label" htmlFor="login-password">
+              Password
+            </label>
+            <input
+              id="login-password"
+              className="input-field"
+              type="password"
+              placeholder="••••••••"
+              value={form.password}
+              onChange={set('password')}
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg auth-form__submit"
+            disabled={isPending}
+            id="login-submit"
+          >
+            {isPending ? <span className="btn-spinner" /> : null}
+            {isPending ? 'Signing in…' : 'Continue'}
+          </button>
+        </form>
+
+        <p className="auth-card__footer-text">
+          Don't have an account?{' '}
+          <Link to="/signup">Begin your journey</Link>
         </p>
-        <div className="auth-page__panel-features">
-          <div className="auth-page__panel-feature">
-            <span className="auth-page__panel-feature-dot" />
-            JWT-secured authentication
-          </div>
-          <div className="auth-page__panel-feature">
-            <span className="auth-page__panel-feature-dot" />
-            Guided onboarding flow
-          </div>
-          <div className="auth-page__panel-feature">
-            <span className="auth-page__panel-feature-dot" />
-            Real-time backend health
-          </div>
-        </div>
-      </div>
-
-      <div className="auth-page__form-side">
-        <div className="auth-card">
-          <div className="auth-card__header">
-            <h1 className="auth-card__title">Welcome back</h1>
-            <p className="auth-card__subtitle">
-              Don't have an account?{' '}
-              <Link to="/signup">Create one</Link>
-            </p>
-          </div>
-
-          {registered && (
-            <div className="alert alert--success" role="status">
-              Account created! Sign in to get started.
-            </div>
-          )}
-
-          {errorMessage && (
-            <div className="alert alert--error" role="alert">
-              {errorMessage}
-            </div>
-          )}
-
-          <form className="auth-form" onSubmit={handleSubmit} noValidate>
-            <div className="input-wrapper">
-              <label className="input-label" htmlFor="email">
-                Email address
-              </label>
-              <div className="input-container">
-                <input
-                  id="email"
-                  className="input-field"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={form.email}
-                  onChange={set('email')}
-                  autoComplete="email"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="input-wrapper">
-              <label className="input-label" htmlFor="password">
-                Password
-              </label>
-              <div className="input-container">
-                <input
-                  id="password"
-                  className="input-field"
-                  type="password"
-                  placeholder="••••••••"
-                  value={form.password}
-                  onChange={set('password')}
-                  autoComplete="current-password"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="btn btn-primary btn-lg auth-form__submit"
-              disabled={isPending}
-            >
-              {isPending ? <span className="btn-spinner" /> : null}
-              {isPending ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
-        </div>
       </div>
     </div>
   );
