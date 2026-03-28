@@ -15,18 +15,17 @@ const MEETING_WORKER_PHOTO: Record<string, string | undefined> = {
   'Ahmad Farouk': WORKER_PHOTOS['2'],
 };
 
-type Section = 'home' | 'programs' | 'community' | 'community-hub' | 'workers' | 'training';
+type Section = 'journey' | 'community' | 'community-hub' | 'workers' | 'training' | 'profile';
 
-const PRIMARY_NAV: { id: Section; label: string }[] = [
-  { id: 'home', label: 'Home' },
-  { id: 'programs', label: 'iCBT Programmes' },
-  { id: 'community', label: 'Community Feed' },
+const PRIMARY_NAV: { id: Section; label: string; icon: string }[] = [
+  { id: 'journey', label: 'My Journey', icon: 'compass' },
+  { id: 'community', label: 'Community', icon: 'users' },
+  { id: 'workers', label: 'Support', icon: 'heart-handshake' },
 ];
 
 const SECONDARY_NAV: { id: Section; label: string }[] = [
-  { id: 'community-hub', label: 'My Community' },
-  { id: 'workers', label: 'Health Workers' },
-  { id: 'training', label: 'Training' },
+  { id: 'community-hub', label: 'My Groups' },
+  { id: 'training', label: 'Resources' },
 ];
 
 const formatMeetingDate = (iso: string) =>
@@ -41,8 +40,9 @@ const formatMeetingDate = (iso: string) =>
 
 const DashboardPage = () => {
   const { user, clearAuth } = useAuthStore();
-  const [section, setSection] = useState<Section>('home');
+  const [section, setSection] = useState<Section>('journey');
   const [moreOpen, setMoreOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useMe();
 
@@ -55,14 +55,43 @@ const DashboardPage = () => {
     ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
     : '?';
 
+  const navIcon = (icon: string) => {
+    switch (icon) {
+      case 'compass':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+          </svg>
+        );
+      case 'users':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        );
+      case 'heart-handshake':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+            <path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08v0c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66" />
+            <path d="m18 15-2-2" /><path d="m15 18-2-2" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
+
 
   return (
     <div className="ds-shell">
       <aside className="ds-sidebar">
         <div className="ds-sidebar__brand">
           <div className="ds-sidebar__logo">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+              <path d="M8 12a4 4 0 0 0 8 0" />
+              <path d="M12 8v.01" />
             </svg>
           </div>
           <span>MindBridge</span>
@@ -76,6 +105,7 @@ const DashboardPage = () => {
               className={`ds-nav__item ${section === item.id ? 'ds-nav__item--active' : ''}`}
               onClick={() => setSection(item.id)}
             >
+              {navIcon(item.icon)}
               {item.label}
             </button>
           ))}
@@ -87,6 +117,9 @@ const DashboardPage = () => {
               onClick={() => setMoreOpen(!moreOpen)}
               aria-expanded={moreOpen}
             >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+              </svg>
               <span>More</span>
               <svg className={`ds-nav__chevron ${moreOpen ? 'ds-nav__chevron--open' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="6 9 12 15 18 9" />
@@ -114,21 +147,51 @@ const DashboardPage = () => {
         </nav>
 
         <div className="ds-sidebar__footer">
-          <div className="ds-sidebar__user">
-            <div className="ds-sidebar__avatar">{initials}</div>
-            <div className="ds-sidebar__userinfo">
-              <span className="ds-sidebar__username">{user?.first_name} {user?.last_name}</span>
-              <span className="ds-sidebar__email">{user?.email}</span>
-            </div>
+          <div className="ds-sidebar__user-wrap">
+            <button 
+              type="button" 
+              className="ds-sidebar__user" 
+              onClick={() => setProfileOpen(!profileOpen)}
+              aria-expanded={profileOpen}
+            >
+              <div className="ds-sidebar__avatar">{initials}</div>
+              <div className="ds-sidebar__userinfo">
+                <span className="ds-sidebar__username">{user?.first_name} {user?.last_name}</span>
+                <span className="ds-sidebar__email">{user?.email}</span>
+              </div>
+              <svg className={`ds-sidebar__user-chevron ${profileOpen ? 'ds-sidebar__user-chevron--open' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {profileOpen && (
+              <div className="ds-sidebar__user-menu">
+                <button 
+                  type="button" 
+                  className="ds-sidebar__user-menu-item"
+                  onClick={() => { setSection('profile'); setProfileOpen(false); }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                  </svg>
+                  View Profile
+                </button>
+                <button type="button" className="ds-sidebar__user-menu-item ds-sidebar__user-menu-item--danger" onClick={handleSignOut}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  Sign out
+                </button>
+              </div>
+            )}
           </div>
-          <button type="button" className="ds-signout" onClick={handleSignOut}>
-            Sign out
-          </button>
         </div>
       </aside>
 
       <main className="ds-main">
-        {section === 'home' && (
+        {section === 'journey' && <IcbtPage />}
+
+        {section === 'profile' && (
           <div className="ds-section">
             <div className="dh-header">
               <div>
@@ -194,7 +257,7 @@ const DashboardPage = () => {
               <div className="dh-panel dh-panel--flex2">
                 <div className="dh-panel__head">
                   <span className="dh-panel__title">Active programmes</span>
-                  <button type="button" className="dh-panel__link" onClick={() => setSection('programs')}>View all</button>
+                  <button type="button" className="dh-panel__link" onClick={() => setSection('journey')}>View all</button>
                 </div>
                 <div className="dh-prog-list">
                   <div className="dh-prog-item">
@@ -357,7 +420,7 @@ const DashboardPage = () => {
               <div className="dh-actions">
                 {(
                   [
-                    { label: 'Continue programme', sub: 'Understanding Anxiety — Day 10', section: 'programs' as Section },
+                    { label: 'Continue programme', sub: 'Understanding Anxiety — Day 10', section: 'journey' as Section },
                     { label: 'My Community', sub: 'Chat, recommended programmes & engagement', section: 'community-hub' as Section },
                     { label: 'Find a health worker', sub: 'Book a session with a counsellor', section: 'workers' as Section },
                     { label: 'Explore training', sub: 'Earn a new certification', section: 'training' as Section },
@@ -377,8 +440,6 @@ const DashboardPage = () => {
             </div>
           </div>
         )}
-
-        {section === 'programs' && <IcbtPage />}
 
         {section === 'community' && <CommunityPage />}
 
