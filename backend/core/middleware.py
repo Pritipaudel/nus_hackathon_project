@@ -9,15 +9,12 @@ from backend.core.database import SessionLocal
 from backend.repository.user_repository import UserRepository
 from backend.services.auth_service import decode_access_token
 
-_PUBLIC_PATHS = {"/", "/health", "/auth/login", "/auth/signup", "/docs", "/openapi.json", "/redoc"}
-
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         request.state.user = None
-
-        if request.url.path in _PUBLIC_PATHS:
-            return await call_next(request)
 
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):

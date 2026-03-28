@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from backend.core.database import get_db
@@ -21,7 +22,9 @@ from backend.services.auth_service import (
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@auth_router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+@auth_router.post(
+    "/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED
+)
 def signup(body: SignupRequest, db: Session = Depends(get_db)):
     repo = UserRepository(db)
     if repo.email_exists(body.email):
@@ -62,6 +65,26 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     )
 
 
+@auth_router.post("/token", response_model=TokenResponse)
+def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    repo = UserRepository(db)
+    user = repo.get_by_email(form_data.username)
+    try:
+        authenticate_user(user, form_data.password)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    token = create_access_token(str(user.id))
+    return TokenResponse(access_token=token)
+
+
 @auth_router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):
     return UserResponse.model_validate(current_user)
@@ -76,5 +99,7 @@ def complete_onboarding(
         return UserResponse.model_validate(current_user)
     updated = UserRepository(db).complete_onboarding(str(current_user.id))
     if updated is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     return UserResponse.model_validate(updated)
