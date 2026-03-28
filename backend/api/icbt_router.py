@@ -1,11 +1,14 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
-from backend.core.database import get_db
+from backend.core.database import get_db, get_async_db
 from backend.core.dependencies import get_current_user
 from backend.models.user import User
+from backend.models.icbt import ICBTModuleProgress
 from backend.schema.icbt import (
     EnrollICBTProgramRequest,
     EnrollICBTProgramResponse,
@@ -15,6 +18,7 @@ from backend.schema.icbt import (
     SetICBTProgramCommunitiesResponse,
     UpdateICBTProgressRequest,
     UpdateICBTProgressResponse,
+    ICBTModuleCompleteResponse
 )
 from backend.services.icbt_service import (
     enroll_user_in_program,
@@ -25,7 +29,6 @@ from backend.services.icbt_service import (
 )
 
 icbt_router = APIRouter(prefix="/icbt", tags=["ICBT"])
-
 
 @icbt_router.get(
     "/programs",
@@ -42,7 +45,6 @@ def list_icbt_programs(db: Session = Depends(get_db)):
     Backward-compatible endpoint for listing ICBT programs.
     """
     return list_icbt_programs_with_community_metadata(db=db)
-
 
 @icbt_router.get(
     "/list",
@@ -71,7 +73,6 @@ def list_icbt_programs_by_community(
         db=db,
         community_id=community_id,
     )
-
 
 @icbt_router.post(
     "/enroll",
@@ -109,7 +110,6 @@ def enroll_icbt_program(
         community_id=enrollment.community_group_id,
     )
 
-
 @icbt_router.put(
     "/programs/{program_id}/communities",
     response_model=SetICBTProgramCommunitiesResponse,
@@ -141,7 +141,6 @@ def set_icbt_program_communities(
         community_ids=assigned_ids,
     )
 
-
 @icbt_router.get(
     "/my-programs",
     response_model=list[MyICBTProgramResponse],
@@ -160,7 +159,6 @@ def list_my_icbt_programs(
     db: Session = Depends(get_db),
 ):
     return list_user_icbt_programs(db=db, user_id=current_user.id)
-
 
 @icbt_router.patch(
     "/programs/{program_id}/progress",
@@ -196,3 +194,29 @@ def update_icbt_program_progress(
         progress_percent=updated.progress_percent,
         completed_at=updated.completed_at,
     )
+
+@icbt_router.post("/modules/{module_id}/complete", response_model=ICBTModuleCompleteResponse)
+async def complete_module(
+    module_id: str,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Mark a module as completed for the current user.
+    """
+    # Check if already completed by this user
+    prog_result = await db.execute(
+        select(ICBTModuleProgress)
+        .where(ICBTModuleProgress.user_id == current_user.id)
+        .where(ICBTModuleProgress.module_id == module_id)
+    )
+    if not prog_result.scalars().first():
+        progress = ICBTModuleProgress(
+            user_id=current_user.id,
+            module_id=module_id,
+            status="completed"
+        )
+        db.add(progress)
+        await db.commit()
+        
+    return ICBTModuleCompleteResponse(status="completed")
