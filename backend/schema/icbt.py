@@ -11,3 +11,22 @@ class ICBTProgramResponse(BaseModel):
     url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class ICBTEnrollRequest(BaseModel):
+    program_id: uuid.UUID
+
+class ICBTEnrollResponse(BaseModel):
+    enrollment_id: uuid.UUID
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ICBTMyProgramResponse(BaseModel):
+    program_id: uuid.UUID
+    status: str
+    progress_percent: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ICBTModuleCompleteResponse(BaseModel):
+    status: str
