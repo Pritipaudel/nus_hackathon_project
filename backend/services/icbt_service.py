@@ -106,16 +106,10 @@ def enroll_user_in_program(
                 detail="Community not found",
             )
 
-        if (
-            repo.get_program_community_link(
-                program_id=program_id, community_id=community_id
-            )
-            is None
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This ICBT program is not mapped to the provided community",
-            )
+        repo.ensure_program_community_link(
+            program_id=program_id,
+            community_id=community_id,
+        )
 
     return repo.create_user_progress(
         user_id=user_id,
