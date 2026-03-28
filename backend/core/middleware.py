@@ -23,7 +23,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         token = auth_header.removeprefix("Bearer ").strip()
 
         try:
-            user_id = decode_access_token(token)
+            user_id, _role = decode_access_token(token)
         except ValueError:
             return await call_next(request)
 
