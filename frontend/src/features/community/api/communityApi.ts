@@ -1,42 +1,29 @@
 import { apiClient } from '@shared/api';
-import type { CommunityPost, TrendingPost } from '@shared/types';
+import type { CommunityPost, TrendingPost, CommunityGroup } from '@shared/types';
 
-interface CreatePostRequest {
-  content: string;
-  category: string;
-  media_urls: string[];
-}
-
-interface CreatePostResponse {
-  post_id: string;
-}
-
-interface ReactRequest {
-  reaction_type: 'UPVOTE' | 'DOWNVOTE';
-}
-
-interface FlagRequest {
-  reason: string;
-}
-
-interface StatusResponse {
-  status: string;
-}
-
-interface GetPostsParams {
+export interface GetPostsParams {
   category?: string;
+  community_group_id?: string;
+  group_type?: string;
+  group_value?: string;
   page?: number;
   limit?: number;
 }
 
-interface UploadUrlRequest {
-  file_name: string;
-  content_type: string;
+export interface CreatePostResponse {
+  post_id: string;
 }
 
-interface UploadUrlResponse {
-  upload_url: string;
-  file_url: string;
+export interface ReactRequest {
+  reaction_type: 'UPVOTE' | 'HELPFUL';
+}
+
+export interface FlagRequest {
+  reason: string;
+}
+
+export interface StatusResponse {
+  status: string;
 }
 
 export const communityApi = {
@@ -45,13 +32,22 @@ export const communityApi = {
     return data;
   },
 
-  getTrending: async (): Promise<TrendingPost[]> => {
-    const { data } = await apiClient.get<TrendingPost[]>('/community/posts/trending');
+  getTrending: async (limit = 10): Promise<TrendingPost[]> => {
+    const { data } = await apiClient.get<TrendingPost[]>('/community/posts/trending', {
+      params: { limit },
+    });
     return data;
   },
 
-  createPost: async (body: CreatePostRequest): Promise<CreatePostResponse> => {
-    const { data } = await apiClient.post<CreatePostResponse>('/community/posts', body);
+  getGroups: async (): Promise<CommunityGroup[]> => {
+    const { data } = await apiClient.get<CommunityGroup[]>('/community/groups');
+    return data;
+  },
+
+  createPost: async (formData: FormData): Promise<CreatePostResponse> => {
+    const { data } = await apiClient.post<CreatePostResponse>('/community/posts', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return data;
   },
 
@@ -71,8 +67,13 @@ export const communityApi = {
     return data;
   },
 
-  getUploadUrl: async (body: UploadUrlRequest): Promise<UploadUrlResponse> => {
-    const { data } = await apiClient.post<UploadUrlResponse>('/media/upload-url', body);
+  deletePost: async (postId: string): Promise<StatusResponse> => {
+    const { data } = await apiClient.delete<StatusResponse>(`/community/posts/${postId}`);
+    return data;
+  },
+
+  getUserPosts: async (userId: string): Promise<CommunityPost[]> => {
+    const { data } = await apiClient.get<CommunityPost[]>(`/community/users/${userId}/posts`);
     return data;
   },
 };

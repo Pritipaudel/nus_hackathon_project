@@ -1,42 +1,64 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { communityApi } from '../api/communityApi';
+import type { GetPostsParams, ReactRequest, FlagRequest } from '../api/communityApi';
 
-export const usePosts = (category?: string) =>
+export const COMMUNITY_KEYS = {
+  posts: (params?: GetPostsParams) => ['community', 'posts', params] as const,
+  trending: ['community', 'trending'] as const,
+  groups: ['community', 'groups'] as const,
+  userPosts: (userId: string) => ['community', 'user-posts', userId] as const,
+};
+
+export const useCommunityPosts = (params?: GetPostsParams) =>
   useQuery({
-    queryKey: ['community', 'posts', category],
-    queryFn: () => communityApi.getPosts({ category, limit: 20 }),
+    queryKey: COMMUNITY_KEYS.posts(params),
+    queryFn: () => communityApi.getPosts(params),
   });
 
-export const useTrending = () =>
+export const useTrendingPosts = () =>
   useQuery({
-    queryKey: ['community', 'trending'],
-    queryFn: communityApi.getTrending,
+    queryKey: COMMUNITY_KEYS.trending,
+    queryFn: () => communityApi.getTrending(10),
+  });
+
+export const useCommunityGroups = () =>
+  useQuery({
+    queryKey: COMMUNITY_KEYS.groups,
+    queryFn: communityApi.getGroups,
   });
 
 export const useCreatePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: communityApi.createPost,
+    mutationFn: (formData: FormData) => communityApi.createPost(formData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+      void queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.trending });
     },
   });
 };
 
-export const useReact = () => {
+export const useReactToPost = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ postId, reaction_type }: { postId: string; reaction_type: 'UPVOTE' | 'DOWNVOTE' }) =>
-      communityApi.react(postId, { reaction_type }),
+    mutationFn: ({ postId, body }: { postId: string; body: ReactRequest }) =>
+      communityApi.react(postId, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+      void queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
     },
   });
 };
 
-export const useFlag = () =>
+export const useFlagPost = () =>
   useMutation({
-    mutationFn: ({ postId, reason }: { postId: string; reason: string }) =>
-      communityApi.flag(postId, { reason }),
+    mutationFn: ({ postId, body }: { postId: string; body: FlagRequest }) =>
+      communityApi.flag(postId, body),
+  });
+
+export const useUserPosts = (userId: string) =>
+  useQuery({
+    queryKey: COMMUNITY_KEYS.userPosts(userId),
+    queryFn: () => communityApi.getUserPosts(userId),
+    enabled: !!userId,
   });

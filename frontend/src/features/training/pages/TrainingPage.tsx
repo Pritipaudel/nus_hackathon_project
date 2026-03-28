@@ -1,77 +1,61 @@
 import { useState } from 'react';
 
-import type { Certification } from '@shared/types';
-
-import {
-  TRAINING_COVERS,
-  TRAINING_DURATION,
-  TRAINING_MODULES,
-  TRAINING_LEVEL,
-  TRAINING_DESCRIPTION,
-  TRAINING_LEVEL_COLOR,
-  MOCK_TRAINING_PROGRAMS,
-  MOCK_CERTIFICATIONS,
-} from '@shared/constants';
+import { useAuthStore } from '@shared/stores/authStore';
+import { useTrainingPrograms, useMyTrainingCertifications, useEnrollTraining } from '../hooks/useTraining';
 
 type Tab = 'browse' | 'my-training' | 'certifications';
 
 const formatIssuedDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-SG', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+    day: 'numeric', month: 'long', year: 'numeric',
   });
 
 const TrainingPage = () => {
+  const user = useAuthStore((s) => s.user);
   const [tab, setTab] = useState<Tab>('browse');
-  const [enrolled, setEnrolled] = useState<Set<string>>(new Set(['1']));
-  const [enrolling, setEnrolling] = useState<string | null>(null);
-  const [certs, setCerts] = useState(MOCK_CERTIFICATIONS);
-  const [completing, setCompleting] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [levelFilter, setLevelFilter] = useState<string>('ALL');
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const myPrograms = MOCK_TRAINING_PROGRAMS.filter((p) => enrolled.has(p.id));
+  const { data: programs = [], isLoading: loadingPrograms } = useTrainingPrograms();
+  const { data: certifications = [], isLoading: loadingCerts } = useMyTrainingCertifications(user?.id ?? '');
+  const enrollMutation = useEnrollTraining();
 
-  const filtered = MOCK_TRAINING_PROGRAMS.filter((p) => {
+  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set());
+
+  const certProgramIds = new Set(certifications.map((c) => c.certification_id));
+
+  const myPrograms = programs.filter((p) => enrolledIds.has(p.id));
+
+  const filtered = programs.filter((p) => {
     const matchesSearch =
       p.title.toLowerCase().includes(search.toLowerCase()) ||
       p.organization.toLowerCase().includes(search.toLowerCase());
-    const matchesLevel = levelFilter === 'ALL' || TRAINING_LEVEL[p.id] === levelFilter;
-    return matchesSearch && matchesLevel;
+    return matchesSearch;
   });
 
   const handleEnroll = (programId: string) => {
-    setEnrolling(programId);
-    setTimeout(() => {
-      setEnrolled((prev) => new Set([...prev, programId]));
-      setEnrolling(null);
-    }, 700);
+    enrollMutation.mutate(
+      { program_id: programId },
+      {
+        onSuccess: () => {
+          setEnrolledIds((prev) => new Set([...prev, programId]));
+        },
+      },
+    );
   };
 
-  const handleComplete = (programId: string) => {
-    setCompleting(programId);
-    setTimeout(() => {
-      const program = MOCK_TRAINING_PROGRAMS.find((p) => p.id === programId);
-      if (program && !certs.find((c) => c.program_id === programId)) {
-        setCerts((prev) => [
-          ...prev,
-          {
-            id: `c${Date.now()}`,
-            program_id: programId,
-            program_title: program.title,
-            issued_at: new Date().toISOString(),
-            verified: program.is_verified,
-          },
-        ]);
-      }
-      setCompleting(null);
-      setTab('certifications');
-    }, 900);
-  };
+  const detailProgram = detailId ? programs.find((p) => p.id === detailId) : null;
 
-  const detailProgram = detailId ? MOCK_TRAINING_PROGRAMS.find((p) => p.id === detailId) : null;
+  if (loadingPrograms) {
+    return (
+      <div className="tr-page">
+        <div className="tr-empty">
+          <span className="btn-spinner" />
+          <p>Loading programmes...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="tr-page">
@@ -96,9 +80,7 @@ const TrainingPage = () => {
             onClick={() => setTab('my-training')}
           >
             My training
-            {myPrograms.length > 0 && (
-              <span className="tr-tab__badge">{myPrograms.length}</span>
-            )}
+            {myPrograms.length > 0 && <span className="tr-tab__badge">{myPrograms.length}</span>}
           </button>
           <button
             type="button"
@@ -106,9 +88,7 @@ const TrainingPage = () => {
             onClick={() => setTab('certifications')}
           >
             Certifications
-            {certs.length > 0 && (
-              <span className="tr-tab__badge">{certs.length}</span>
-            )}
+            {certifications.length > 0 && <span className="tr-tab__badge">{certifications.length}</span>}
           </button>
         </div>
       </div>
@@ -135,49 +115,21 @@ const TrainingPage = () => {
                 </button>
               )}
             </div>
-            <div className="tr-level-pills">
-              {['ALL', 'Beginner', 'Intermediate', 'Advanced'].map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  className={`tr-pill ${levelFilter === l ? 'tr-pill--active' : ''}`}
-                  onClick={() => setLevelFilter(l)}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
           </div>
 
           {filtered.length === 0 ? (
             <div className="tr-empty">
               <p>No programmes match your search.</p>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSearch(''); setLevelFilter('ALL'); }}>
-                Clear filters
-              </button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSearch('')}>Clear filters</button>
             </div>
           ) : (
             <div className="tr-grid">
               {filtered.map((p) => {
-                const isEnrolled = enrolled.has(p.id);
-                const isEnrolling = enrolling === p.id;
-                const hasCert = certs.some((c) => c.program_id === p.id);
+                const isEnrolled = enrolledIds.has(p.id);
+                const isEnrolling = enrollMutation.isPending && enrollMutation.variables?.program_id === p.id;
+                const hasCert = certProgramIds.has(p.id);
                 return (
                   <div key={p.id} className={`tr-card ${isEnrolled ? 'tr-card--enrolled' : ''}`}>
-                    <div className="tr-card__cover-wrap">
-                      <img
-                        src={TRAINING_COVERS[p.id]}
-                        alt={p.title}
-                        className="tr-card__cover"
-                        loading="lazy"
-                      />
-                      <div className="tr-card__cover-overlay">
-                        <span className={`tr-badge ${TRAINING_LEVEL_COLOR[TRAINING_LEVEL[p.id]]}`}>{TRAINING_LEVEL[p.id]}</span>
-                        {hasCert && <span className="tr-badge tr-badge--cert">Certified</span>}
-                        {isEnrolled && !hasCert && <span className="tr-badge tr-badge--enrolled">Enrolled</span>}
-                      </div>
-                    </div>
-
                     <div className="tr-card__body">
                       <div className="tr-card__meta-row">
                         <span className="tr-card__org">
@@ -188,13 +140,14 @@ const TrainingPage = () => {
                           )}
                           {p.organization}
                         </span>
-                        <span className="tr-card__stats">
-                          {TRAINING_MODULES[p.id]} modules · {TRAINING_DURATION[p.id]}
-                        </span>
+                        <div className="tr-card__badges">
+                          {hasCert && <span className="tr-badge tr-badge--cert">Certified</span>}
+                          {isEnrolled && !hasCert && <span className="tr-badge tr-badge--enrolled">Enrolled</span>}
+                        </div>
                       </div>
 
                       <h3 className="tr-card__title">{p.title}</h3>
-                      <p className="tr-card__desc">{TRAINING_DESCRIPTION[p.id]}</p>
+                      {p.description && <p className="tr-card__desc">{p.description}</p>}
 
                       <div className="tr-card__footer">
                         <button
@@ -209,14 +162,8 @@ const TrainingPage = () => {
                             Completed
                           </button>
                         ) : isEnrolled ? (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            disabled={completing === p.id}
-                            onClick={() => handleComplete(p.id)}
-                          >
-                            {completing === p.id && <span className="btn-spinner" />}
-                            {completing === p.id ? 'Completing...' : 'Mark complete'}
+                          <button type="button" className="btn btn-secondary btn-sm" disabled>
+                            Enrolled
                           </button>
                         ) : (
                           <button
@@ -251,54 +198,22 @@ const TrainingPage = () => {
           ) : (
             <div className="tr-my__list">
               {myPrograms.map((p) => {
-                const hasCert = certs.some((c) => c.program_id === p.id);
+                const hasCert = certProgramIds.has(p.id);
                 return (
                   <div key={p.id} className="tr-my__card">
-                    <img
-                      src={TRAINING_COVERS[p.id]}
-                      alt={p.title}
-                      className="tr-my__cover"
-                      loading="lazy"
-                    />
                     <div className="tr-my__info">
-                      <div className="tr-my__top">
-                        <span className="tr-my__org">{p.organization}</span>
-                        <span className={`tr-badge ${TRAINING_LEVEL_COLOR[TRAINING_LEVEL[p.id]]}`}>{TRAINING_LEVEL[p.id]}</span>
-                      </div>
+                      <span className="tr-my__org">{p.organization}</span>
                       <p className="tr-my__title">{p.title}</p>
-                      <p className="tr-my__desc">{TRAINING_DESCRIPTION[p.id]}</p>
-                      <div className="tr-my__meta">
-                        <span>{TRAINING_MODULES[p.id]} modules</span>
-                        <span>·</span>
-                        <span>{TRAINING_DURATION[p.id]}</span>
-                      </div>
-
+                      {p.description && <p className="tr-my__desc">{p.description}</p>}
                       <div className="tr-my__progress-bar">
-                        <div
-                          className="tr-my__progress-fill"
-                          style={{ width: hasCert ? '100%' : '40%' }}
-                        />
+                        <div className="tr-my__progress-fill" style={{ width: hasCert ? '100%' : '40%' }} />
                       </div>
-                      <span className="tr-my__progress-label">
-                        {hasCert ? 'Complete' : '40% complete'}
-                      </span>
+                      <span className="tr-my__progress-label">{hasCert ? 'Complete' : 'In progress'}</span>
                     </div>
                     <div className="tr-my__actions">
-                      {hasCert ? (
-                        <button type="button" className="btn btn-secondary btn-sm" disabled>
-                          Completed
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm"
-                          disabled={completing === p.id}
-                          onClick={() => handleComplete(p.id)}
-                        >
-                          {completing === p.id && <span className="btn-spinner" />}
-                          {completing === p.id ? 'Completing...' : 'Mark complete'}
-                        </button>
-                      )}
+                      <span className={`tr-badge ${hasCert ? 'tr-badge--cert' : 'tr-badge--inprogress'}`}>
+                        {hasCert ? 'Completed' : 'In progress'}
+                      </span>
                     </div>
                   </div>
                 );
@@ -310,7 +225,12 @@ const TrainingPage = () => {
 
       {tab === 'certifications' && (
         <div className="tr-certs">
-          {certs.length === 0 ? (
+          {loadingCerts ? (
+            <div className="tr-empty">
+              <span className="btn-spinner" />
+              <p>Loading certifications...</p>
+            </div>
+          ) : certifications.length === 0 ? (
             <div className="tr-empty">
               <p>No certifications yet. Complete a programme to earn one.</p>
               <button type="button" className="btn btn-primary btn-sm" onClick={() => setTab('browse')}>
@@ -319,7 +239,7 @@ const TrainingPage = () => {
             </div>
           ) : (
             <div className="tr-cert-grid">
-              {certs.map((c) => (
+              {certifications.map((c) => (
                 <div key={c.id} className="tr-cert-card">
                   <div className="tr-cert-card__ribbon">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -329,8 +249,9 @@ const TrainingPage = () => {
                   </div>
                   <div className="tr-cert-card__body">
                     <p className="tr-cert-card__label">Certificate of Completion</p>
-                    <p className="tr-cert-card__title">{c.program_title}</p>
+                    <p className="tr-cert-card__title">{c.certification.title}</p>
                     <p className="tr-cert-card__date">Issued {formatIssuedDate(c.issued_at)}</p>
+                    <p className="tr-cert-card__org">{c.certification.organization}</p>
                     {c.verified && (
                       <span className="tr-cert-card__verified">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
@@ -358,10 +279,8 @@ const TrainingPage = () => {
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
-            <img src={TRAINING_COVERS[detailProgram.id]} alt={detailProgram.title} className="tr-modal__cover" />
             <div className="tr-modal__body">
               <div className="tr-modal__meta">
-                <span className={`tr-badge ${TRAINING_LEVEL_COLOR[TRAINING_LEVEL[detailProgram.id]]}`}>{TRAINING_LEVEL[detailProgram.id]}</span>
                 <span className="tr-modal__org">
                   {detailProgram.is_verified && (
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="tr-card__org-check">
@@ -372,20 +291,8 @@ const TrainingPage = () => {
                 </span>
               </div>
               <h2 className="tr-modal__title">{detailProgram.title}</h2>
-              <p className="tr-modal__desc">{TRAINING_DESCRIPTION[detailProgram.id]}</p>
+              {detailProgram.description && <p className="tr-modal__desc">{detailProgram.description}</p>}
               <div className="tr-modal__stats">
-                <div className="tr-modal__stat">
-                  <span className="tr-modal__stat-label">Modules</span>
-                  <span className="tr-modal__stat-value">{TRAINING_MODULES[detailProgram.id]}</span>
-                </div>
-                <div className="tr-modal__stat">
-                  <span className="tr-modal__stat-label">Duration</span>
-                  <span className="tr-modal__stat-value">{TRAINING_DURATION[detailProgram.id]}</span>
-                </div>
-                <div className="tr-modal__stat">
-                  <span className="tr-modal__stat-label">Level</span>
-                  <span className="tr-modal__stat-value">{TRAINING_LEVEL[detailProgram.id]}</span>
-                </div>
                 <div className="tr-modal__stat">
                   <span className="tr-modal__stat-label">Certificate</span>
                   <span className="tr-modal__stat-value">{detailProgram.is_verified ? 'Verified' : 'Standard'}</span>
@@ -395,11 +302,11 @@ const TrainingPage = () => {
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDetailId(null)}>
                   Close
                 </button>
-                {!enrolled.has(detailProgram.id) && (
+                {!enrolledIds.has(detailProgram.id) && (
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
-                    disabled={enrolling === detailProgram.id}
+                    disabled={enrollMutation.isPending}
                     onClick={() => { handleEnroll(detailProgram.id); setDetailId(null); }}
                   >
                     Enroll now

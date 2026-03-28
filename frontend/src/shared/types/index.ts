@@ -1,19 +1,17 @@
 export type {
-  ApiResponse,
-  PaginatedResponse,
   ApiError,
-  PaginationParams,
+  CommunityMetadata,
   IcbtProgram,
-  MyProgram,
+  MyIcbtProgram,
+  PostMedia,
+  CommunityGroup,
   CommunityPost,
   TrendingPost,
   HealthWorker,
   Meeting,
   TrainingProgram,
   Certification,
-  TrendingIssue,
-  OnboardingResponse,
-  UserProfile,
+  UserCertification,
 } from './api';
 export type { User, UserRole, TokenResponse, AuthResponse, LoginRequest, SignupRequest } from './auth';
 export type {

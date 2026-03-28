@@ -47,11 +47,23 @@ def get_health_workers(
     db: Session = Depends(get_db),
 ):
     workers = list_health_workers(db=db, community_id=community_id)
+    def _split(value: str | None) -> list[str]:
+        if not value:
+            return []
+        return [s.strip() for s in value.split(",") if s.strip()]
+
     return [
         HealthWorkerResponse(
             id=worker.id,
             username=worker.username,
             organization=worker.organization,
+            title=worker.title,
+            bio=worker.bio,
+            specialties=_split(worker.specialties),
+            languages=_split(worker.languages),
+            availability=worker.availability or "available",
+            sessions_count=worker.sessions_count or 0,
+            photo_url=worker.photo_url,
             community_id=worker.community_id,
             community_name=(
                 worker.community_group.value if worker.community_group else None

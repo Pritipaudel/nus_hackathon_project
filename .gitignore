@@ -4,3 +4,4 @@ venv/
 .env
 minio_data/
 .env.development
+scripts/

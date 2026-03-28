@@ -8,6 +8,13 @@ class HealthWorkerResponse(BaseModel):
     id: uuid.UUID
     username: str
     organization: str
+    title: str | None = None
+    bio: str | None = None
+    specialties: list[str] = []
+    languages: list[str] = []
+    availability: str | None = "available"
+    sessions_count: int = 0
+    photo_url: str | None = None
     community_id: uuid.UUID | None = None
     community_name: str | None = None
     is_verified: bool

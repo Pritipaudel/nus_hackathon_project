@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -30,6 +31,13 @@ class HealthWorker(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username = Column(String(120), nullable=False)
     organization = Column(String(200), nullable=False)
+    title = Column(String(120), nullable=True)
+    bio = Column(Text, nullable=True)
+    specialties = Column(String(500), nullable=True)
+    languages = Column(String(300), nullable=True)
+    availability = Column(String(20), nullable=True, default="available")
+    sessions_count = Column(Integer, nullable=True, default=0)
+    photo_url = Column(String(500), nullable=True)
     community_id = Column(
         UUID(as_uuid=True),
         ForeignKey("community_groups.id", ondelete="SET NULL"),
@@ -70,6 +78,8 @@ class Meeting(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+    health_worker = relationship("HealthWorker", foreign_keys=[health_worker_id])
 
     __table_args__ = (
         Index("idx_meetings_user_scheduled", "user_id", "scheduled_at"),

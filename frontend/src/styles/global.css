@@ -4559,6 +4559,48 @@ a:hover { text-decoration: underline; }
   padding: var(--space-4) 0;
 }
 
+.dh-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.dh-prog-overview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-2) 0;
+}
+
+.dh-prog-ring {
+  flex-shrink: 0;
+}
+
+.dh-prog-overview__stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.dh-prog-overview__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dh-prog-overview__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dh-prog-overview__dot--active { background: var(--color-primary); }
+.dh-prog-overview__dot--done   { background: var(--color-success); }
+
 /* ── Training (tr-*) ────────────────────────────── */
 .tr-page {
   display: flex;
@@ -4777,11 +4819,12 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 
-.tr-badge--green  { background: rgba(34, 197, 94, 0.15); color: #15803d; }
-.tr-badge--amber  { background: rgba(245, 158, 11, 0.15); color: #92400e; }
-.tr-badge--red    { background: rgba(239, 68, 68, 0.15);  color: #991b1b; }
-.tr-badge--cert   { background: rgba(99, 102, 241, 0.15); color: #3730a3; }
-.tr-badge--enrolled { background: rgba(22, 163, 74, 0.12); color: #15803d; }
+.tr-badge--green      { background: rgba(34, 197, 94, 0.15);  color: #15803d; }
+.tr-badge--amber      { background: rgba(245, 158, 11, 0.15); color: #92400e; }
+.tr-badge--red        { background: rgba(239, 68, 68, 0.15);  color: #991b1b; }
+.tr-badge--cert       { background: rgba(99, 102, 241, 0.15); color: #3730a3; }
+.tr-badge--enrolled   { background: rgba(22, 163, 74, 0.12);  color: #15803d; }
+.tr-badge--inprogress { background: rgba(245, 158, 11, 0.12); color: #92400e; }
 
 /* Card body */
 .tr-card__body {
@@ -4865,51 +4908,47 @@ a:hover { text-decoration: underline; }
 
 .tr-my__card {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
   background: #fff;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  overflow: hidden;
+  padding: var(--space-5);
   transition: box-shadow var(--transition-base);
 }
 
 .tr-my__card:hover { box-shadow: var(--shadow-sm); }
 
-.tr-my__cover {
-  width: 120px;
-  height: 100px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
 .tr-my__info {
   flex: 1;
   min-width: 0;
-  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .tr-my__top { display: flex; align-items: center; gap: var(--space-2); }
 
 .tr-my__org {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .tr-my__title {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin: 0;
+  line-height: var(--line-height-tight);
 }
 
 .tr-my__desc {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -4927,7 +4966,7 @@ a:hover { text-decoration: underline; }
 }
 
 .tr-my__progress-bar {
-  height: 4px;
+  height: 5px;
   background: var(--color-bg-subtle);
   border-radius: 999px;
   overflow: hidden;
@@ -4943,12 +4982,15 @@ a:hover { text-decoration: underline; }
 
 .tr-my__progress-label {
   font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-subtle);
 }
 
 .tr-my__actions {
-  padding: var(--space-4);
   flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
 }
 
 /* Certifications tab */
@@ -6393,6 +6435,14 @@ a:hover { text-decoration: underline; }
 .pt-post__time {
   font-size: 11px;
   color: var(--color-text-muted);
+}
+
+.pt-post__group {
+  font-size: 11px;
+  color: var(--color-text-subtle);
+  background: var(--color-bg-subtle);
+  border-radius: 999px;
+  padding: 1px 7px;
 }
 
 .pt-post__text {

@@ -1,8 +1,6 @@
 import { useState } from 'react';
 
-import type { MyProgram } from '@shared/types';
-
-import { ICBT_PROGRAMS, ICBT_MY_PROGRAMS } from '@shared/constants';
+import { useIcbtPrograms, useMyIcbtPrograms, useEnrollIcbt, useUpdateIcbtProgress } from '../hooks/useIcbt';
 
 type FilterTab = 'all' | 'enrolled' | 'completed' | 'available';
 type DifficultyFilter = 'all' | 'Beginner' | 'Intermediate' | 'Advanced';
@@ -17,24 +15,20 @@ const IcbtPage = () => {
   const [tab, setTab] = useState<FilterTab>('all');
   const [difficulty, setDifficulty] = useState<DifficultyFilter>('all');
   const [search, setSearch] = useState('');
-  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(
-    new Set(ICBT_MY_PROGRAMS.map((p) => p.program_id)),
-  );
-  const [completedIds, setCompletedIds] = useState<Set<string>>(
-    new Set(ICBT_MY_PROGRAMS.filter((p) => p.status === 'COMPLETED').map((p) => p.program_id)),
-  );
-  const [progress, setProgress] = useState<Record<string, number>>(
-    Object.fromEntries(ICBT_MY_PROGRAMS.map((p) => [p.program_id, p.progress_percent])),
-  );
-  const [enrolling, setEnrolling] = useState<string | null>(null);
 
-  const myPrograms: MyProgram[] = ICBT_PROGRAMS.filter((p) => enrolledIds.has(p.id)).map((p) => ({
-    program_id: p.id,
-    status: completedIds.has(p.id) ? 'COMPLETED' : 'ACTIVE',
-    progress_percent: progress[p.id] ?? 0,
-  }));
+  const { data: programs = [], isLoading: loadingPrograms, isError } = useIcbtPrograms();
+  const { data: myPrograms = [], isLoading: loadingMy } = useMyIcbtPrograms();
+  const enrollMutation = useEnrollIcbt();
+  const progressMutation = useUpdateIcbtProgress();
 
-  const filtered = ICBT_PROGRAMS.filter((p) => {
+  const enrolledIds = new Set(myPrograms.map((p) => p.program_id));
+  const completedIds = new Set(
+    myPrograms.filter((p) => p.status === 'COMPLETED').map((p) => p.program_id),
+  );
+
+  const getMyProgram = (id: string) => myPrograms.find((p) => p.program_id === id);
+
+  const filtered = programs.filter((p) => {
     if (tab === 'enrolled' && !enrolledIds.has(p.id)) return false;
     if (tab === 'completed' && !completedIds.has(p.id)) return false;
     if (tab === 'available' && enrolledIds.has(p.id)) return false;
@@ -44,23 +38,36 @@ const IcbtPage = () => {
   });
 
   const handleEnroll = (programId: string) => {
-    setEnrolling(programId);
-    setTimeout(() => {
-      setEnrolledIds((prev) => new Set([...prev, programId]));
-      setProgress((prev) => ({ ...prev, [programId]: 0 }));
-      setEnrolling(null);
-    }, 800);
+    enrollMutation.mutate({ program_id: programId });
   };
 
-  const getMyProgram = (id: string): MyProgram | undefined =>
-    myPrograms.find((p) => p.program_id === id);
-
   const tabs: { id: FilterTab; label: string; count: number }[] = [
-    { id: 'all', label: 'All programmes', count: ICBT_PROGRAMS.length },
+    { id: 'all', label: 'All programmes', count: programs.length },
     { id: 'enrolled', label: 'Enrolled', count: enrolledIds.size },
     { id: 'completed', label: 'Completed', count: completedIds.size },
-    { id: 'available', label: 'Available', count: ICBT_PROGRAMS.length - enrolledIds.size },
+    { id: 'available', label: 'Available', count: programs.length - enrolledIds.size },
   ];
+
+  if (loadingPrograms || loadingMy) {
+    return (
+      <div className="icbt-page">
+        <div className="icbt-loading">
+          <span className="btn-spinner" />
+          <p>Loading programmes...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="icbt-page">
+        <div className="icbt-empty">
+          <p>Failed to load programmes. Please try again.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="icbt-page">
@@ -135,23 +142,24 @@ const IcbtPage = () => {
             const my = getMyProgram(program.id);
             const isEnrolled = enrolledIds.has(program.id);
             const isCompleted = completedIds.has(program.id);
+            const isEnrolling = enrollMutation.isPending && enrollMutation.variables?.program_id === program.id;
 
             return (
               <div key={program.id} className={`icbt-card ${isEnrolled ? 'icbt-card--enrolled' : ''}`}>
                 <div className="icbt-card__top">
                   <div className="icbt-card__badges">
-                    <span className={`ds-badge ${DIFFICULTY_BADGE[program.difficulty_level] ?? 'ds-badge--outline'}`}>
-                      {program.difficulty_level}
-                    </span>
-                    <span className="ds-badge ds-badge--outline">
-                      {program.duration_days} days
-                    </span>
-                    {isCompleted && (
-                      <span className="ds-badge ds-badge--green">Completed</span>
+                    {program.difficulty_level && (
+                      <span className={`ds-badge ${DIFFICULTY_BADGE[program.difficulty_level] ?? 'ds-badge--outline'}`}>
+                        {program.difficulty_level}
+                      </span>
                     )}
-                    {isEnrolled && !isCompleted && (
-                      <span className="ds-badge ds-badge--amber">Active</span>
+                    {program.duration_days && (
+                      <span className="ds-badge ds-badge--outline">
+                        {program.duration_days} days
+                      </span>
                     )}
+                    {isCompleted && <span className="ds-badge ds-badge--green">Completed</span>}
+                    {isEnrolled && !isCompleted && <span className="ds-badge ds-badge--amber">Active</span>}
                   </div>
 
                   <h3 className="icbt-card__title">{program.title}</h3>
@@ -174,29 +182,31 @@ const IcbtPage = () => {
                 </div>
 
                 <div className="icbt-card__footer">
-                  <a
-                    href={program.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="icbt-card__link"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                    Preview
-                  </a>
+                  {program.url && (
+                    <a
+                      href={program.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="icbt-card__link"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                      Preview
+                    </a>
+                  )}
 
                   {!isEnrolled && (
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"
                       onClick={() => handleEnroll(program.id)}
-                      disabled={enrolling === program.id}
+                      disabled={isEnrolling}
                     >
-                      {enrolling === program.id ? <span className="btn-spinner" /> : null}
-                      {enrolling === program.id ? 'Enrolling...' : 'Enroll'}
+                      {isEnrolling && <span className="btn-spinner" />}
+                      {isEnrolling ? 'Enrolling...' : 'Enroll'}
                     </button>
                   )}
 
@@ -204,16 +214,20 @@ const IcbtPage = () => {
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"
+                      onClick={() =>
+                        progressMutation.mutate({
+                          programId: program.id,
+                          body: { progress_percent: Math.min(100, (my?.progress_percent ?? 0) + 10) },
+                        })
+                      }
+                      disabled={progressMutation.isPending}
                     >
                       Continue
                     </button>
                   )}
 
                   {isCompleted && (
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                    >
+                    <button type="button" className="btn btn-secondary btn-sm">
                       Review
                     </button>
                   )}
