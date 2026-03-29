@@ -5,6 +5,14 @@ Backend service project with PostgreSQL, MinIO, and Alembic migrations.
 # Demo video, presentation video link
 https://drive.google.com/drive/folders/1UMSCVnT31RI5xTlsIca7X_k91RVotdOC?usp=drive_link
 
+# Team name :The shamans 
+Members: 
+- Pratham Adhikari
+- Preeti Paudel Jaisi
+- Shubham Raj Joshi
+- Prashant Sharma
+- Prasanna Jha
+
 ## Project Structure
 
 ```text
@@ -163,3 +171,4 @@ cd frontend
 npm install 
 npm run dev
 ```
+
