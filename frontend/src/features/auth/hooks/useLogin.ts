@@ -10,6 +10,20 @@ const resolveRedirect = (role: string, isFirstLogin: boolean): string => {
   return isFirstLogin ? '/onboarding' : '/dashboard';
 };
 
+const consumeAuthRedirectNext = (): string | null => {
+  const raw = sessionStorage.getItem('authRedirectNext');
+  sessionStorage.removeItem('authRedirectNext');
+  return raw;
+};
+
+const toAbsoluteUrl = (pathOrUrl: string): string => {
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    return pathOrUrl;
+  }
+  const path = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+  return `${window.location.origin}${path}`;
+};
+
 export const useLogin = () => {
   const setAuth = useAuthStore((s) => s.setAuth);
 
@@ -18,6 +32,11 @@ export const useLogin = () => {
     onSuccess: ({ user, tokens, is_first_login }) => {
       setAuth(user, tokens.access_token);
       setTimeout(() => {
+        const pending = consumeAuthRedirectNext();
+        if (pending) {
+          window.location.replace(toAbsoluteUrl(pending));
+          return;
+        }
         window.location.replace(resolveRedirect(user.role, is_first_login));
       }, 0);
     },

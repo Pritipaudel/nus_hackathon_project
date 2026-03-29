@@ -17,19 +17,32 @@ from backend.core.dependencies import get_current_user
 from backend.models.user import User
 from backend.repository.community_repository import CommunityRepository
 from backend.schema.community import (
+    AcceptCommunityInviteRequest,
     ActionStatusResponse,
     CommunityCategory,
     CommunityGroupResponse,
     CommunityGroupType,
+    CommunityInviteCreatedResponse,
+    CommunityInvitePreviewResponse,
     CommunityPostResponse,
     CommunityTrendingPostResponse,
     CreateCommunityGroupRequest,
     CreatePostResponse,
     FlagPostRequest,
+    MyCommunityGroupResponse,
     PostMediaResponse,
     ReactPostRequest,
 )
-from backend.services.community_service import create_community_group, create_post
+from backend.services.community_service import (
+    accept_community_invite,
+    create_community_group,
+    create_community_group_invite,
+    create_post,
+    join_community_group,
+    leave_community_group,
+    list_my_community_groups,
+    preview_community_invite,
+)
 from backend.services.community_service import delete_post as delete_post_service
 
 communuity_router = APIRouter(prefix="/community", tags=["community"])
@@ -161,7 +174,98 @@ def create_group(
         value=body.value,
         description=body.description,
     )
-    return CommunityGroupResponse.model_validate(group)
+    repo = CommunityRepository(db)
+    member_count = repo.count_group_members(group.id)
+    base = CommunityGroupResponse.model_validate(group)
+    return base.model_copy(update={"member_count": member_count})
+
+
+@communuity_router.get(
+    "/groups/mine",
+    response_model=list[MyCommunityGroupResponse],
+    summary="List community groups I joined or created",
+)
+def list_my_community_group_memberships(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return list_my_community_groups(db=db, current_user=current_user)
+
+
+@communuity_router.post(
+    "/groups/{group_id}/join",
+    response_model=MyCommunityGroupResponse,
+    summary="Join a community group",
+)
+def join_group(
+    group_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return join_community_group(db=db, current_user=current_user, group_id=group_id)
+
+
+@communuity_router.delete(
+    "/groups/{group_id}/leave",
+    response_model=ActionStatusResponse,
+    summary="Leave a community group",
+)
+def leave_group(
+    group_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    leave_community_group(db=db, current_user=current_user, group_id=group_id)
+    return ActionStatusResponse(status="left")
+
+
+@communuity_router.post(
+    "/groups/{group_id}/invites",
+    response_model=CommunityInviteCreatedResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create an invite link for a community group",
+    description=(
+        "Members can generate a shareable link. The invite path includes `token` and "
+        "`user_id` (inviter) query parameters for the join page."
+    ),
+)
+def create_group_invite(
+    group_id: uuid.UUID,
+    expires_in_days: int = Query(default=30, ge=1, le=365),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return create_community_group_invite(
+        db=db,
+        current_user=current_user,
+        group_id=group_id,
+        expires_in_days=expires_in_days,
+    )
+
+
+@communuity_router.get(
+    "/invites/preview",
+    response_model=CommunityInvitePreviewResponse,
+    summary="Preview a community invite (no auth)",
+)
+def get_invite_preview(
+    token: str = Query(..., min_length=8, max_length=120),
+    db: Session = Depends(get_db),
+):
+    return preview_community_invite(db=db, token=token)
+
+
+@communuity_router.post(
+    "/invites/accept",
+    response_model=MyCommunityGroupResponse,
+    summary="Accept invite and join group",
+)
+def accept_invite(
+    body: AcceptCommunityInviteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return accept_community_invite(db=db, current_user=current_user, token=body.token)
 
 
 @communuity_router.get("/groups", response_model=list[CommunityGroupResponse])
@@ -173,10 +277,23 @@ def list_groups(
     db: Session = Depends(get_db),
 ):
     """List available community groups, optionally filtered by type."""
-    groups = CommunityRepository(db).list_groups(
+    repo = CommunityRepository(db)
+    rows = repo.list_groups_with_member_counts(
         group_type=group_type.value if group_type else None
     )
-    return [CommunityGroupResponse.model_validate(group) for group in groups]
+    return [
+        CommunityGroupResponse(
+            id=g.id,
+            name=g.name,
+            group_type=CommunityGroupType(g.group_type),
+            value=g.value,
+            description=g.description,
+            created_by_user_id=g.created_by_user_id,
+            created_at=g.created_at,
+            member_count=int(mc),
+        )
+        for g, mc in rows
+    ]
 
 
 @communuity_router.get(

@@ -49,8 +49,14 @@ class CommunityGroupResponse(BaseModel):
     description: str | None = None
     created_by_user_id: uuid.UUID | None = None
     created_at: datetime
+    member_count: int = Field(default=0, ge=0)
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MyCommunityGroupResponse(CommunityGroupResponse):
+    is_creator: bool
+    joined_at: datetime
 
 
 class CreateCommunityGroupRequest(BaseModel):
@@ -90,6 +96,28 @@ class ActionStatusResponse(BaseModel):
 
 class FlagPostRequest(BaseModel):
     reason: str = Field(min_length=2, max_length=1000)
+
+
+class CommunityInviteCreatedResponse(BaseModel):
+    token: str
+    group_id: uuid.UUID
+    invited_by_user_id: uuid.UUID
+    expires_at: datetime
+    invite_path: str = Field(
+        description="Frontend path with token and user_id (inviter) query params",
+    )
+
+
+class AcceptCommunityInviteRequest(BaseModel):
+    token: str = Field(min_length=8, max_length=120)
+
+
+class CommunityInvitePreviewResponse(BaseModel):
+    group_id: uuid.UUID
+    group_name: str
+    expires_at: datetime
+    invited_by_user_id: uuid.UUID | None = None
+    inviter_display_name: str | None = None
 
 
 class PostListQuery(BaseModel):

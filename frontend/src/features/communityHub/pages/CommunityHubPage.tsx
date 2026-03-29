@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  COMMUNITY_MEMBERS,
-  COMMUNITY_RECOMMENDED_PROGRAMS,
-  COMMUNITY_ENGAGEMENTS,
-} from '@shared/constants';
-import type { CommunityMember } from '@shared/constants';
+import { useQuery } from '@tanstack/react-query';
+
+import { communityApi } from '@features/community/api/communityApi';
 import type { ChatContactDto } from '@features/chat/api/directChatApi';
 import { useChatContacts, useChatMessages, useSendChatMessage } from '@features/chat/hooks/useDirectChat';
+import {
+  useCommunityGroups,
+  useCreateCommunityGroup,
+  useCreateGroupInvite,
+  useJoinCommunityGroup,
+  useLeaveCommunityGroup,
+  useMyCommunityGroups,
+} from '@features/community/hooks/useCommunity';
+import { useEnrollIcbt, useIcbtPrograms, useMyIcbtPrograms } from '@features/icbt/hooks/useIcbt';
 import { useAuthStore } from '@shared/stores/authStore';
+import type { IcbtProgram } from '@shared/types';
 
 type Tab = 'members' | 'recommended' | 'engagement';
 
@@ -17,6 +24,17 @@ export type CommunityHubVariant = 'patient' | 'health_worker';
 export type CommunityHubPageProps = {
   /** `patient` — hub with Recommended & Engagement; chat lists workers linked via meetings. */
   variant?: CommunityHubVariant;
+};
+
+type HubMember = {
+  id: string;
+  username: string;
+  avatar: string;
+  photo?: string;
+  role: 'member' | 'worker';
+  status: 'online' | 'away' | 'offline';
+  joinedDaysAgo: number;
+  category: string;
 };
 
 const timeLabel = (iso: string): string => {
@@ -37,7 +55,28 @@ const CATEGORY_COLORS: Record<string, string> = {
   GENERAL: 'ch-cat--gray',
 };
 
-const chatContactToMember = (c: ChatContactDto): CommunityMember => {
+const GROUP_TYPE_OPTIONS = [
+  { value: 'CUSTOM', label: 'Custom' },
+  { value: 'RELIGION', label: 'Religion' },
+  { value: 'ETHNICITY_CASTE', label: 'Ethnicity / caste' },
+  { value: 'GENDER', label: 'Gender' },
+  { value: 'RACE', label: 'Race' },
+] as const;
+
+const groupTypeLabel = (value: string) =>
+  GROUP_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value;
+
+const icbtProgramCoverUrl = (id: string) => {
+  const seeds = ['1506126613408-eca07ce68773', '1545205597-3d9d02c29597', '1499209974431-9dddcece7f88'];
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h + id.charCodeAt(i)) % seeds.length;
+  return `https://images.unsplash.com/photo-${seeds[h]}?w=400&q=80`;
+};
+
+const totalCommunityEnrollment = (p: IcbtProgram): number =>
+  p.community_metadata.reduce((a, m) => a + m.total_users_using, 0);
+
+const chatContactToMember = (c: ChatContactDto): HubMember => {
   const name = (c.display_name || c.anonymous_username || 'Unknown').trim();
   const initial = [...name][0]?.toUpperCase() ?? '?';
   return {
@@ -53,10 +92,13 @@ const chatContactToMember = (c: ChatContactDto): CommunityMember => {
 
 const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
   const [tab, setTab] = useState<Tab>('members');
-  const [activeMember, setActiveMember] = useState<CommunityMember | null>(null);
+  const [activeMember, setActiveMember] = useState<HubMember | null>(null);
   const [draft, setDraft] = useState('');
-  const [enrolledPrograms, setEnrolledPrograms] = useState<Set<string>>(new Set(['1']));
-  const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupType, setNewGroupType] = useState<string>('CUSTOM');
+  const [newGroupValue, setNewGroupValue] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [inviteCopiedGroupId, setInviteCopiedGroupId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const user = useAuthStore((s) => s.user);
 
@@ -70,7 +112,45 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
   );
   const sendMessageMutation = useSendChatMessage();
 
-  const openChat = (m: CommunityMember) => {
+  const programsQuery = useIcbtPrograms();
+  const myProgramsQuery = useMyIcbtPrograms();
+  const enrollMutation = useEnrollIcbt();
+
+  const allGroupsQuery = useCommunityGroups();
+  const myGroupsQuery = useMyCommunityGroups();
+  const createGroupMutation = useCreateCommunityGroup();
+  const joinGroupMutation = useJoinCommunityGroup();
+  const leaveGroupMutation = useLeaveCommunityGroup();
+  const createInviteMutation = useCreateGroupInvite();
+
+  const postsQuery = useQuery({
+    queryKey: ['community', 'posts', 'hub-feed'],
+    queryFn: () => communityApi.getPosts({ limit: 20 }),
+    enabled: Boolean(user) && !isHealthWorkerPortal && tab === 'engagement',
+  });
+
+  const enrolledIds = useMemo(
+    () => new Set((myProgramsQuery.data ?? []).map((p) => p.program_id)),
+    [myProgramsQuery.data],
+  );
+
+  const myGroupIdSet = useMemo(
+    () => new Set((myGroupsQuery.data ?? []).map((g) => g.id)),
+    [myGroupsQuery.data],
+  );
+
+  const discoverGroups = useMemo(
+    () => (allGroupsQuery.data ?? []).filter((g) => !myGroupIdSet.has(g.id)),
+    [allGroupsQuery.data, myGroupIdSet],
+  );
+
+  const programsByEngagement = useMemo(() => {
+    const list = [...(programsQuery.data ?? [])];
+    list.sort((a, b) => totalCommunityEnrollment(b) - totalCommunityEnrollment(a));
+    return list;
+  }, [programsQuery.data]);
+
+  const openChat = (m: HubMember) => {
     setActiveMember(m);
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
@@ -93,11 +173,7 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
   };
 
   const handleEnroll = (programId: string) => {
-    setEnrolling(programId);
-    setTimeout(() => {
-      setEnrolledPrograms((prev) => new Set([...prev, programId]));
-      setEnrolling(null);
-    }, 700);
+    enrollMutation.mutate({ program_id: programId });
   };
 
   const displayMembers = useMemo(() => {
@@ -111,10 +187,28 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
     scrollChatEnd();
   }, [activeMember?.id, messagesQuery.data]);
 
-  const communityOnlineCount = useMemo(
-    () => COMMUNITY_MEMBERS.filter((m) => m.status === 'online').length,
-    [],
-  );
+  const headerSub = useMemo(() => {
+    if (isHealthWorkerPortal) {
+      return `${displayMembers.length} patient${displayMembers.length === 1 ? '' : 's'} linked to your sessions`;
+    }
+    if (tab === 'members') {
+      return `${displayMembers.length} health worker${displayMembers.length === 1 ? '' : 's'} you can message`;
+    }
+    if (tab === 'recommended') {
+      const n = programsQuery.data?.length ?? 0;
+      const d = discoverGroups.length;
+      return `${n} iCBT programme${n === 1 ? '' : 's'} · ${d} group${d === 1 ? '' : 's'} you can join`;
+    }
+    const mg = myGroupsQuery.data?.length ?? 0;
+    return `${mg} community group${mg === 1 ? '' : 's'} you belong to`;
+  }, [
+    isHealthWorkerPortal,
+    tab,
+    displayMembers.length,
+    programsQuery.data?.length,
+    myGroupsQuery.data?.length,
+    discoverGroups.length,
+  ]);
 
   const inputPlaceholder =
     activeMember == null
@@ -125,9 +219,30 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
           ? 'Message your health worker…'
           : 'Type a message…';
 
+  const submitCreateGroup = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newGroupName.trim();
+    const value = newGroupValue.trim();
+    if (!name || !value || createGroupMutation.isPending) return;
+    createGroupMutation.mutate(
+      {
+        name,
+        group_type: newGroupType,
+        value,
+        description: newGroupDesc.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          setNewGroupName('');
+          setNewGroupValue('');
+          setNewGroupDesc('');
+        },
+      },
+    );
+  };
+
   return (
     <div className="ch-page">
-      {/* Header */}
       <div className="ch-header">
         <div>
           <h1 className="ch-header__title">
@@ -135,11 +250,7 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
           </h1>
           <p className="ch-header__sub">
             <span className="ch-online-dot" />
-            {isHealthWorkerPortal
-              ? `${displayMembers.length} patient${displayMembers.length === 1 ? '' : 's'} linked to your sessions`
-              : tab === 'members'
-                ? `${displayMembers.length} health worker${displayMembers.length === 1 ? '' : 's'} you can message`
-                : `${communityOnlineCount} online · ${COMMUNITY_MEMBERS.length} members in your community`}
+            {headerSub}
           </p>
         </div>
         {!isHealthWorkerPortal && (
@@ -158,10 +269,8 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
         )}
       </div>
 
-      {/* Members & Chat */}
       {showMemberChat && (
         <div className="ch-members-layout">
-          {/* Member list */}
           <div className="ch-member-list">
             <p className="ch-member-list__label">
               {isHealthWorkerPortal ? 'Patients' : 'Your care team'}
@@ -211,7 +320,6 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
             ))}
           </div>
 
-          {/* Chat panel */}
           <div className="ch-chat">
             {!activeMember ? (
               <div className="ch-chat__empty">
@@ -316,57 +424,63 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
         </div>
       )}
 
-      {/* Recommended programmes */}
       {tab === 'recommended' && (
         <div className="ch-recommended">
           <div className="ch-recommended__intro">
             <p className="ch-recommended__intro-text">
-              These programmes are recommended based on what your community members are doing and what your health worker has suggested for you.
+              Enrol in evidence-based iCBT modules and join community groups that reflect your identity or goals—all
+              in one place.
             </p>
           </div>
-          <div className="ch-prog-grid">
-            {COMMUNITY_RECOMMENDED_PROGRAMS.map((p) => {
-              const isEnrolled = enrolledPrograms.has(p.id);
-              const isEnrolling = enrolling === p.id;
-              const engagement = COMMUNITY_ENGAGEMENTS.find((e) => e.programId === p.id);
+
+          <section className="ch-hub-section" aria-labelledby="hub-icbt-heading">
+            <div className="ch-hub-section__head">
+              <h2 id="hub-icbt-heading" className="ch-hub-section__title">
+                iCBT programmes
+              </h2>
+              <p className="ch-hub-section__sub">
+                Structured programmes from the catalogue. Enrol to track progress on your dashboard.
+              </p>
+            </div>
+            {programsQuery.isLoading && <p className="ch-member-list__label">Loading programmes…</p>}
+            {programsQuery.isError && (
+              <p className="ch-member-list__label">
+                Could not load programmes. Check that you are signed in and try again.
+              </p>
+            )}
+            <div className="ch-prog-grid">
+              {(programsQuery.data ?? []).map((p) => {
+              const isEnrolled = enrolledIds.has(p.id);
+              const isEnrolling = enrollMutation.isPending && enrollMutation.variables?.program_id === p.id;
+              const enrolled = totalCommunityEnrollment(p);
+              const trending = enrolled >= 3;
               return (
                 <div key={p.id} className={`ch-prog-card ${isEnrolled ? 'ch-prog-card--enrolled' : ''}`}>
                   <div className="ch-prog-card__cover-wrap">
-                    <img src={p.coverUrl} alt={p.title} className="ch-prog-card__cover" loading="lazy" />
-                    {engagement?.trending && (
-                      <span className="ch-prog-card__trending">Trending in your community</span>
+                    <img src={icbtProgramCoverUrl(p.id)} alt={p.title} className="ch-prog-card__cover" loading="lazy" />
+                    {trending && (
+                      <span className="ch-prog-card__trending">Popular across communities</span>
                     )}
                   </div>
                   <div className="ch-prog-card__body">
                     <div className="ch-prog-card__meta">
-                      <span className={`ch-cat-chip ${CATEGORY_COLORS[p.category] ?? ''}`}>{p.category}</span>
-                      <span className="ch-prog-card__difficulty">{p.difficultyLevel} · {p.durationDays} days</span>
+                      <span className={`ch-cat-chip ${CATEGORY_COLORS.GENERAL}`}>iCBT</span>
+                      <span className="ch-prog-card__difficulty">
+                        {p.difficulty_level ?? 'Programme'}
+                        {p.duration_days != null ? ` · ${p.duration_days} days` : ''}
+                      </span>
                     </div>
                     <h3 className="ch-prog-card__title">{p.title}</h3>
-                    <p className="ch-prog-card__desc">{p.description}</p>
+                    <p className="ch-prog-card__desc">{p.description ?? ''}</p>
 
-                    {engagement && (
+                    {enrolled > 0 && (
                       <div className="ch-prog-card__engagement">
-                        <div className="ch-avatar-stack">
-                          {engagement.members.slice(0, 3).map((mem) => (
-                            mem.photo ? (
-                              <img key={mem.id} src={mem.photo} alt="" className="ch-avatar-stack__item" />
-                            ) : (
-                              <div key={mem.id} className="ch-avatar-stack__item ch-avatar-stack__item--fallback">{mem.avatar}</div>
-                            )
-                          ))}
-                        </div>
                         <span className="ch-prog-card__engagement-label">
-                          <strong>{engagement.memberCount}</strong> community {engagement.memberCount === 1 ? 'member' : 'members'} enrolled
+                          <strong>{enrolled}</strong> community {enrolled === 1 ? 'member' : 'members'} enrolled
+                          {p.community_metadata.length > 0 ? ' (across linked groups)' : ''}
                         </span>
                       </div>
                     )}
-
-                    <div className="ch-prog-card__tags">
-                      {p.tags.map((tag) => (
-                        <span key={tag} className="ch-tag">{tag}</span>
-                      ))}
-                    </div>
 
                     <div className="ch-prog-card__footer">
                       {isEnrolled ? (
@@ -389,71 +503,292 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
                 </div>
               );
             })}
-          </div>
+            </div>
+          </section>
+
+          <section className="ch-hub-section" aria-labelledby="hub-discover-heading">
+            <div className="ch-hub-section__head">
+              <h2 id="hub-discover-heading" className="ch-hub-section__title">
+                Discover groups
+              </h2>
+              <p className="ch-hub-section__sub">
+                Groups you are not in yet. Join to post in the feed and share invite links from the Engagement tab.
+              </p>
+            </div>
+            {allGroupsQuery.isLoading && <p className="ch-member-list__label">Loading groups…</p>}
+            {allGroupsQuery.isError && (
+              <p className="ch-member-list__label">Could not load groups. Try refreshing the page.</p>
+            )}
+            <div className="ch-engagement-list">
+              {discoverGroups.length === 0 && !allGroupsQuery.isLoading && !allGroupsQuery.isError && (
+                <p className="ch-member-list__label">
+                  You are in every available group, or none exist yet. Create a new one under Engagement.
+                </p>
+              )}
+              {discoverGroups.map((g) => {
+                const joining = joinGroupMutation.isPending && joinGroupMutation.variables === g.id;
+                return (
+                  <div key={g.id} className="ch-eng-card">
+                    <div className="ch-eng-card__left">
+                      <p className="ch-eng-card__title">{g.name}</p>
+                      <p className="ch-eng-card__desc">
+                        <strong>{groupTypeLabel(g.group_type)}</strong>
+                        {' · '}
+                        {g.value}
+                        {g.description ? ` — ${g.description}` : ''}
+                      </p>
+                      <p className="ch-eng-card__count">
+                        <strong>{g.member_count ?? 0}</strong> {g.member_count === 1 ? 'member' : 'members'}
+                      </p>
+                    </div>
+                    <div className="ch-eng-card__right">
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={joining}
+                        onClick={() => joinGroupMutation.mutate(g.id)}
+                      >
+                        {joining && <span className="btn-spinner" />}
+                        {joining ? 'Joining…' : 'Join'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         </div>
       )}
 
-      {/* Community engagement */}
       {tab === 'engagement' && (
         <div className="ch-engagement">
           <div className="ch-engagement__intro">
             <p className="ch-engagement__intro-text">
-              See which programmes your community members are actively working on. Joining a programme others are doing means you have people to support you through it.
+              Manage your groups, invite others, see programme activity across communities, and browse the feed. Find
+              more groups to join under Recommended.
             </p>
           </div>
 
+          <p className="ch-activity-feed__title" style={{ marginBottom: 'var(--space-2)' }}>
+            My community groups
+          </p>
+          {myGroupsQuery.isLoading && <p className="ch-member-list__label">Loading your groups…</p>}
+          {myGroupsQuery.isError && (
+            <p className="ch-member-list__label">Could not load your groups. Try signing in again.</p>
+          )}
+          <div className="ch-engagement-list" style={{ marginBottom: 'var(--space-5)' }}>
+            {(myGroupsQuery.data ?? []).length === 0 && !myGroupsQuery.isLoading && (
+              <p className="ch-member-list__label">
+                You have not joined any groups yet. Create one below or discover groups under Recommended.
+              </p>
+            )}
+            {(myGroupsQuery.data ?? []).map((g) => (
+              <div key={g.id} className="ch-eng-card">
+                <div className="ch-eng-card__left">
+                  <div className="ch-eng-card__title-row">
+                    <p className="ch-eng-card__title">{g.name}</p>
+                    {g.is_creator && <span className="ch-eng-card__trending-badge">Created by you</span>}
+                  </div>
+                  <p className="ch-eng-card__desc">
+                    <strong>{groupTypeLabel(g.group_type)}</strong>
+                    {' · '}
+                    {g.value}
+                    {g.description ? ` — ${g.description}` : ''}
+                  </p>
+                  <p className="ch-eng-card__count">
+                    <strong>{g.member_count ?? 0}</strong> {g.member_count === 1 ? 'member' : 'members'}
+                  </p>
+                </div>
+                <div className="ch-eng-card__right" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', alignItems: 'stretch' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={createInviteMutation.isPending}
+                    onClick={() => {
+                      createInviteMutation.mutate(
+                        { groupId: g.id },
+                        {
+                          onSuccess: async (res) => {
+                            const url = `${window.location.origin}${res.invite_path}`;
+                            try {
+                              await navigator.clipboard.writeText(url);
+                              setInviteCopiedGroupId(g.id);
+                              window.setTimeout(() => setInviteCopiedGroupId(null), 2500);
+                            } catch {
+                              window.alert(`Copy this link:\n${url}`);
+                            }
+                          },
+                        },
+                      );
+                    }}
+                  >
+                    {inviteCopiedGroupId === g.id ? 'Invite link copied' : 'Copy invite link'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={leaveGroupMutation.isPending}
+                    onClick={() => leaveGroupMutation.mutate(g.id)}
+                  >
+                    Leave
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <section className="ch-hub-section" aria-labelledby="hub-create-group-heading">
+            <div className="ch-hub-section__head">
+              <h2 id="hub-create-group-heading" className="ch-hub-section__title">
+                Create a community group
+              </h2>
+              <p className="ch-hub-section__sub">
+                Start a space for your community. You will be added as the first member; others can join from
+                Recommended or via your invite link.
+              </p>
+            </div>
+            <div className="ch-create-group">
+              <form className="ch-create-group__card" onSubmit={submitCreateGroup}>
+                <div>
+                  <h3 className="ch-create-group__card-title">Group details</h3>
+                  <p className="ch-create-group__card-lead">
+                    Choose a clear name and a unique slug. The combination of type and slug must not match an existing
+                    group.
+                  </p>
+                </div>
+                <div className="ch-field">
+                  <label className="ch-field__label" htmlFor="cg-name">
+                    Name
+                  </label>
+                  <input
+                    id="cg-name"
+                    className="ch-field__input"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="e.g. Evening anxiety circle"
+                    minLength={2}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="ch-field">
+                  <label className="ch-field__label" htmlFor="cg-type">
+                    Group type
+                  </label>
+                  <select
+                    id="cg-type"
+                    className="ch-field__select"
+                    value={newGroupType}
+                    onChange={(e) => setNewGroupType(e.target.value)}
+                  >
+                    {GROUP_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="ch-field">
+                  <label className="ch-field__label" htmlFor="cg-value">
+                    Unique value (slug)
+                  </label>
+                  <input
+                    id="cg-value"
+                    className="ch-field__input"
+                    value={newGroupValue}
+                    onChange={(e) => setNewGroupValue(e.target.value)}
+                    placeholder="e.g. evening_anxiety_sg"
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="ch-field">
+                  <label className="ch-field__label" htmlFor="cg-desc">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    id="cg-desc"
+                    className="ch-field__textarea"
+                    value={newGroupDesc}
+                    onChange={(e) => setNewGroupDesc(e.target.value)}
+                    placeholder="Who is this group for? What can people expect?"
+                  />
+                </div>
+                {createGroupMutation.isError && (
+                  <div className="alert alert--error" role="alert">
+                    Could not create this group. The type and slug together may already be in use.
+                  </div>
+                )}
+                <div className="ch-create-group__submit-row">
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={createGroupMutation.isPending}
+                  >
+                    {createGroupMutation.isPending && <span className="btn-spinner" />}
+                    {createGroupMutation.isPending ? 'Creating…' : 'Create group'}
+                  </button>
+                </div>
+              </form>
+              <aside className="ch-create-group__tips" aria-label="Tips for creating a group">
+                <p className="ch-create-group__tips-title">Before you publish</p>
+                <ul className="ch-create-group__tips-list">
+                  <li>
+                    Use a <strong>slug</strong> with lowercase letters, numbers, and underscores only so links stay
+                    readable.
+                  </li>
+                  <li>
+                    Pick the <strong>type</strong> that best describes who the group is for (identity, faith, custom
+                    topic, etc.).
+                  </li>
+                  <li>
+                    After creating, use <strong>Copy invite link</strong> on your group card so friends can join in
+                    one tap.
+                  </li>
+                  <li>Everyone can discover open groups under the <strong>Recommended</strong> tab.</li>
+                </ul>
+              </aside>
+            </div>
+          </section>
+
+          <p className="ch-activity-feed__title" style={{ margin: 'var(--space-5) 0 var(--space-2)' }}>
+            Programme engagement
+          </p>
           <div className="ch-engagement-list">
-            {COMMUNITY_ENGAGEMENTS.map((eng) => {
-              const program = COMMUNITY_RECOMMENDED_PROGRAMS.find((p) => p.id === eng.programId);
-              const isEnrolled = enrolledPrograms.has(eng.programId);
-              const isEnrolling = enrolling === eng.programId;
+            {programsByEngagement.filter((p) => totalCommunityEnrollment(p) > 0).map((p) => {
+              const n = totalCommunityEnrollment(p);
+              const isEnrolled = enrolledIds.has(p.id);
+              const isEnrolling = enrollMutation.isPending && enrollMutation.variables?.program_id === p.id;
+              const trending = n >= 3;
               return (
-                <div key={eng.programId} className="ch-eng-card">
+                <div key={p.id} className="ch-eng-card">
                   <div className="ch-eng-card__left">
                     <div className="ch-eng-card__title-row">
-                      <p className="ch-eng-card__title">{eng.programTitle}</p>
-                      {eng.trending && <span className="ch-eng-card__trending-badge">Trending</span>}
+                      <p className="ch-eng-card__title">{p.title}</p>
+                      {trending && <span className="ch-eng-card__trending-badge">Trending</span>}
                     </div>
-
-                    <div className="ch-eng-card__members">
-                      <div className="ch-avatar-stack">
-                        {eng.members.slice(0, 4).map((m) => (
-                          m.photo ? (
-                            <img key={m.id} src={m.photo} alt="" className="ch-avatar-stack__item" />
-                          ) : (
-                            <div key={m.id} className="ch-avatar-stack__item ch-avatar-stack__item--fallback">{m.avatar}</div>
-                          )
-                        ))}
-                        {eng.memberCount > 4 && (
-                          <div className="ch-avatar-stack__item ch-avatar-stack__item--more">+{eng.memberCount - 4}</div>
-                        )}
-                      </div>
-                      <p className="ch-eng-card__count">
-                        <strong>{eng.memberCount} people</strong> from your community are enrolled in this programme
-                      </p>
-                    </div>
-
-                    {program && (
-                      <p className="ch-eng-card__desc">{program.description}</p>
-                    )}
+                    <p className="ch-eng-card__count">
+                      <strong>{n} people</strong> from linked communities are enrolled in this programme
+                    </p>
+                    <p className="ch-eng-card__desc">{p.description ?? ''}</p>
                   </div>
-
                   <div className="ch-eng-card__right">
                     <div className="ch-eng-card__stat">
-                      <span className="ch-eng-card__stat-value">{eng.memberCount}</span>
+                      <span className="ch-eng-card__stat-value">{n}</span>
                       <span className="ch-eng-card__stat-label">enrolled</span>
                     </div>
                     {isEnrolled ? (
-                      <button type="button" className="btn btn-secondary btn-sm" disabled>Enrolled</button>
+                      <button type="button" className="btn btn-secondary btn-sm" disabled>
+                        Enrolled
+                      </button>
                     ) : (
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
                         disabled={isEnrolling}
-                        onClick={() => handleEnroll(eng.programId)}
+                        onClick={() => handleEnroll(p.id)}
                       >
-                        {isEnrolling && <span className="btn-spinner" />}
-                        {isEnrolling ? 'Enrolling...' : 'Join them'}
+                        {isEnrolling ? 'Enrolling…' : 'Join them'}
                       </button>
                     )}
                   </div>
@@ -462,35 +797,30 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
             })}
           </div>
 
-          {/* Member activity feed */}
           <div className="ch-activity-feed">
             <p className="ch-activity-feed__title">Recent community activity</p>
+            {postsQuery.isLoading && <p className="ch-member-list__label">Loading posts…</p>}
+            {postsQuery.isError && (
+              <p className="ch-member-list__label">Could not load the community feed.</p>
+            )}
             <div className="ch-activity-feed__list">
-              {(
-                [
-                  { member: COMMUNITY_MEMBERS[1], action: 'completed module 4 of Understanding Anxiety', time: '1h ago' },
-                  { member: COMMUNITY_MEMBERS[4], action: 'shared a post about grief and recovery', time: '3h ago' },
-                  { member: COMMUNITY_MEMBERS[2], action: 'enrolled in Stress & Burnout Reset', time: '5h ago' },
-                  { member: COMMUNITY_MEMBERS[5], action: 'posted in the Relationships category', time: '8h ago' },
-                  { member: COMMUNITY_MEMBERS[0], action: 'completed the Sleep & Recovery programme', time: '1d ago' },
-                ] as { member: CommunityMember; action: string; time: string }[]
-              ).map((item, i) => (
-                <div key={i} className="ch-feed-row">
-                  {item.member.photo ? (
-                    <img src={item.member.photo} alt={item.member.username} className="ch-feed-row__photo" />
-                  ) : (
-                    <div className="ch-feed-row__avatar">{item.member.avatar}</div>
-                  )}
-                  <div className="ch-feed-row__body">
-                    <p className="ch-feed-row__text">
-                      <span className="ch-feed-row__username">{item.member.username}</span>
-                      {' '}
-                      {item.action}
-                    </p>
-                    <span className="ch-feed-row__time">{item.time}</span>
+              {(postsQuery.data ?? []).map((post) => {
+                const initial = [...post.username][0]?.toUpperCase() ?? '?';
+                return (
+                  <div key={post.id} className="ch-feed-row">
+                    <div className="ch-feed-row__avatar">{initial}</div>
+                    <div className="ch-feed-row__body">
+                      <p className="ch-feed-row__text">
+                        <span className="ch-feed-row__username">{post.username}</span>
+                        {' '}
+                        posted in <strong>{post.category}</strong>
+                        {post.community_group ? ` · ${post.community_group.name}` : ''}
+                      </p>
+                      <span className="ch-feed-row__time">{timeLabel(post.created_at)}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
