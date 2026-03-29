@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import type { SignupRequest, UserRole } from '@shared/types';
 
@@ -8,7 +8,9 @@ import { useSignup } from '../hooks/useSignup';
 import { AuthBrandPanel } from '../components/AuthBrandPanel';
 
 const SignupPage = () => {
-  const { mutate: signup, isPending, error } = useSignup();
+  const [searchParams] = useSearchParams();
+  const nextAfterLogin = searchParams.get('next');
+  const { mutate: signup, isPending, error } = useSignup({ nextAfterLogin });
 
   const [form, setForm] = useState<SignupRequest>({
     email: '',

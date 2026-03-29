@@ -13,6 +13,7 @@ const LoginPage = () => {
 
   const registered = searchParams.get('registered') === 'true';
   const prefillEmail = searchParams.get('email') ?? '';
+  const nextAfterLogin = searchParams.get('next');
 
   const [form, setForm] = useState<LoginRequest>({
     email: prefillEmail,
@@ -24,6 +25,9 @@ const LoginPage = () => {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (nextAfterLogin) {
+      sessionStorage.setItem('authRedirectNext', nextAfterLogin);
+    }
     login(form);
   };
 
