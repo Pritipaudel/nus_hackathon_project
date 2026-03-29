@@ -32,10 +32,11 @@ export const useTrendingPosts = () =>
     queryFn: () => communityApi.getTrending(10),
   });
 
-export const useCommunityGroups = () =>
+export const useCommunityGroups = (enabled = true) =>
   useQuery({
     queryKey: COMMUNITY_KEYS.groups,
     queryFn: communityApi.getGroups,
+    enabled,
   });
 
 export const useMyCommunityGroups = () => {

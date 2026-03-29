@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 
@@ -88,10 +89,6 @@ class HealthWorkerRepository:
         )
 
     def list_worker_meetings(self, worker_user_id: uuid.UUID) -> list[Meeting]:
-        """Return all meetings where this user IS the health worker.
-        Since HealthWorker.id == User.id (enforced by seed and onboarding),
-        we filter Meeting.health_worker_id == worker_user_id directly.
-        """
         return (
             self.db.query(Meeting)
             .filter(Meeting.health_worker_id == worker_user_id)
@@ -242,13 +239,28 @@ class HealthWorkerRepository:
             is not None
         )
 
-    def list_patients_for_worker(self, worker_user_id: uuid.UUID) -> list[User]:
-        """Return distinct patients who have a meeting with this health worker.
+    def users_have_shared_meeting(self, user_a: uuid.UUID, user_b: uuid.UUID) -> bool:
+        """True if any meeting links these two as patient (user_id) and worker (health_worker_id)."""
+        return (
+            self.db.query(Meeting.id)
+            .filter(
+                or_(
+                    and_(
+                        Meeting.user_id == user_a,
+                        Meeting.health_worker_id == user_b,
+                    ),
+                    and_(
+                        Meeting.user_id == user_b,
+                        Meeting.health_worker_id == user_a,
+                    ),
+                )
+            )
+            .first()
+            is not None
+        )
 
-        The HealthWorker record for a logged-in worker is created with id == user.id
-        (via upsert_health_worker_profile or the seed), so Meeting.health_worker_id
-        directly matches the worker's User.id.
-        """
+    def list_patients_for_worker(self, worker_user_id: uuid.UUID) -> list[User]:
+
         subquery = (
             self.db.query(Meeting.user_id)
             .filter(Meeting.health_worker_id == worker_user_id)

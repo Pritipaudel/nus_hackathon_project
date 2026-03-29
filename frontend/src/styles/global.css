@@ -160,7 +160,7 @@ a:hover { text-decoration: underline; }
   border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
-/* ── Auth page (MindBridge) ─────────────────────── */
+/* ── Auth page (उत्थान) ─────────────────────── */
 .auth-page {
   min-height: 100vh;
   display: grid;
@@ -1727,6 +1727,15 @@ a:hover { text-decoration: underline; }
   background: transparent;
   border: 1px solid var(--color-border-strong);
   color: var(--color-text-muted);
+}
+.ds-badge--recommended {
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
+  color: var(--color-primary-active);
+  white-space: normal;
+  max-width: 100%;
+  line-height: 1.25;
+  text-align: left;
 }
 
 .ds-empty {
@@ -3832,6 +3841,22 @@ a:hover { text-decoration: underline; }
   margin: 0;
 }
 
+.ch-member-list__empty {
+  padding-bottom: var(--space-3);
+}
+
+.ch-member-list__hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  padding: 0 var(--space-4);
+  margin: 0;
+  line-height: var(--line-height-relaxed);
+}
+
+.ch-member-list__book-btn {
+  margin: var(--space-3) var(--space-4) 0;
+}
+
 .ch-member-row {
   width: 100%;
   display: flex;
@@ -3968,7 +3993,17 @@ a:hover { text-decoration: underline; }
 
 .ch-chat__empty svg { color: var(--color-text-subtle); opacity: 0.4; }
 .ch-chat__empty p { font-size: var(--font-size-sm); color: var(--color-text-muted); margin: 0; }
-.ch-chat__empty span { font-size: var(--font-size-xs); color: var(--color-text-subtle); }
+.ch-chat__empty span { font-size: var(--font-size-xs); color: var(--color-text-subtle); max-width: 26rem; }
+
+.ch-chat__empty-lead {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.ch-chat__empty-btn {
+  margin-top: var(--space-4);
+}
 
 .ch-chat__header {
   display: flex;
@@ -4251,6 +4286,10 @@ a:hover { text-decoration: underline; }
   color: var(--color-text-subtle);
 }
 
+.ch-prog-card__recommended {
+  align-self: flex-start;
+}
+
 .ch-prog-card__title {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
@@ -4377,6 +4416,42 @@ a:hover { text-decoration: underline; }
   margin: 0;
   line-height: var(--line-height-relaxed);
   max-width: 42rem;
+}
+
+.ch-groups-search-wrap {
+  margin: var(--space-4) 0 var(--space-3);
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Discover groups: full-width search (do not reuse iCBT toolbar’s fixed 180px input). */
+.ch-groups-search.icbt-search {
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+}
+
+.ch-groups-search.icbt-search svg {
+  flex-shrink: 0;
+}
+
+.ch-groups-search.icbt-search:focus-within {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.ch-groups-search .icbt-search__input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 10px 0;
+  line-height: 1.4;
 }
 
 .ch-create-group {
@@ -6463,31 +6538,6 @@ a:hover { text-decoration: underline; }
   color: var(--color-text-muted);
 }
 
-.wd-mock-chat-callout {
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, var(--color-border));
-  background: var(--color-primary-subtle);
-}
-.wd-mock-chat-callout__title {
-  margin: 0 0 6px;
-  font-size: 13px;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-}
-.wd-mock-chat-callout__text {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--color-text-muted);
-}
-.wd-mock-chat-callout__text code {
-  font-size: 11px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--color-bg-muted);
-}
-
 .wd-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -6954,10 +7004,6 @@ a:hover { text-decoration: underline; }
 }
 
 .wd-section--wide {
-  max-width: 100%;
-}
-
-.wd-section--flush-hub .ch-page {
   max-width: 100%;
 }
 

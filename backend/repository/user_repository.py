@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy.orm import Session
 
 from backend.models.user import DEFAULT_USER_ROLE, User, UserRole
@@ -10,8 +12,9 @@ class UserRepository:
     def get_by_email(self, email: str) -> User | None:
         return self.db.query(User).filter(User.email == email).first()
 
-    def get_by_id(self, user_id: str) -> User | None:
-        return self.db.query(User).filter(User.id == user_id).first()
+    def get_by_id(self, user_id: str | uuid.UUID) -> User | None:
+        uid = uuid.UUID(str(user_id)) if not isinstance(user_id, uuid.UUID) else user_id
+        return self.db.query(User).filter(User.id == uid).first()
 
     def create(
         self,

@@ -9,6 +9,7 @@ Demo seed: 1 health worker (login) + 8 patients, meetings with Dr. Priya Nair.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
@@ -117,6 +118,11 @@ def create_health_worker(
     return hw
 
 
+def _catalog_worker_email_slug(username: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", ".", username.lower()).strip(".")
+    return slug or uuid.uuid4().hex[:10]
+
+
 def create_health_worker_profile_only(
     db,
     username,
@@ -131,7 +137,28 @@ def create_health_worker_profile_only(
     is_verified,
     photo_url: str | None = None,
 ) -> HealthWorker:
+    """
+    Catalogue worker shown in browse + bookable like Dr. Priya.
+    User.id must equal HealthWorker.id so /chat/messages can resolve the peer user.
+    """
+    slug = _catalog_worker_email_slug(username)
+    email = f"{slug}@catalog.demo.local"
+    n = 0
+    while db.query(User).filter(User.email == email).first() is not None:
+        n += 1
+        email = f"{slug}.{n}@catalog.demo.local"
+    parts = username.split(maxsplit=1)
+    fn, ln = parts[0], (parts[1] if len(parts) > 1 else "Worker")
+    user = create_user(
+        db,
+        email,
+        fn,
+        ln,
+        f"catalog_{slug.replace('.', '_')[:24]}",
+        USER_HEALTH_WORKER_ROLE,
+    )
     hw = HealthWorker(
+        id=user.id,
         username=username,
         organization=organization,
         community_id=community_id,
@@ -146,7 +173,7 @@ def create_health_worker_profile_only(
     )
     db.add(hw)
     db.flush()
-    print(f"  [catalogue worker] {username}")
+    print(f"  [catalogue worker] {username} (user_id={user.id})")
     return hw
 
 
@@ -550,6 +577,52 @@ def run_demo_seed() -> None:
         db.rollback()
         print(f"\n[ERROR] {exc}")
         raise
+    finally:
+        db.close()
+
+
+def ensure_health_worker_user_accounts() -> None:
+    """
+    Catalogue workers must have a matching users row (same id) for direct chat FKs.
+    Repairs DBs seeded before catalogue users were created with each profile.
+    """
+    db = SessionLocal()
+    try:
+        hws = db.query(HealthWorker).all()
+        created = 0
+        for h in hws:
+            if db.query(User).filter(User.id == h.id).first() is not None:
+                continue
+            slug = _catalog_worker_email_slug(h.username or "worker")
+            email = f"{slug}@catalog.demo.local"
+            n = 0
+            while db.query(User).filter(User.email == email).first() is not None:
+                n += 1
+                email = f"{slug}.{n}@catalog.demo.local"
+            parts = (h.username or "Health Worker").split(maxsplit=1)
+            fn, ln = parts[0], (parts[1] if len(parts) > 1 else "Worker")
+            db.add(
+                User(
+                    id=h.id,
+                    email=email,
+                    first_name=fn[:80],
+                    last_name=ln[:80],
+                    anonymous_username=f"hw_{slug.replace('.', '_')[:28]}",
+                    hashed_password=hash_password(DEMO_PASSWORD),
+                    role=USER_HEALTH_WORKER_ROLE,
+                    is_onboarded=True,
+                )
+            )
+            created += 1
+        if created:
+            db.commit()
+            logger.info("Linked %s health worker profile(s) to user accounts for chat.", created)
+    except (OperationalError, ProgrammingError) as exc:
+        db.rollback()
+        logger.warning("Skipping health worker user backfill: %s", exc)
+    except Exception:
+        db.rollback()
+        logger.exception("ensure_health_worker_user_accounts failed")
     finally:
         db.close()
 

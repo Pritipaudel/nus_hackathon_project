@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import type { LoginRequest } from '@shared/types';
+import { env } from '@shared/lib/env';
 
 import { useLogin } from '../hooks/useLogin';
 import { AuthBrandPanel } from '../components/AuthBrandPanel';
@@ -37,7 +38,7 @@ const LoginPage = () => {
   return (
     <div className="auth-page">
       <AuthBrandPanel
-        title="MindBridge"
+        title={env.appName}
         tagline={<>Your journey to inner peace starts here</>}
       />
 

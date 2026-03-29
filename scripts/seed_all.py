@@ -10,7 +10,7 @@ Skip hackathon demo (Nepal scripts + hub problems only):
     PYTHONPATH=. uv run python scripts/seed_all.py --no-hackathon-demo
 
 Pipeline:
-  1–7. scripts: ICBT, users, community, health workers, training, meetings, anonymous problems
+  1–7. scripts: users, community, ICBT (programme ↔ group links need groups), health workers, training, meetings, anonymous problems
   8. (unless --no-hackathon-demo) backend.seed.demo_data: run_demo_seed_if_needed + ensure_demo_direct_messages
   9. backend.seed.community_problems_demo: merge_demo_community_problems (idempotent by title)
   10. scripts.seed_problem_upvotes: synthetic ProblemUpvote rows + sync AnonymousProblem.upvote_count
@@ -40,18 +40,18 @@ from scripts.seed_problem_upvotes import seed_problem_upvotes  # noqa: E402
 
 
 def run_script_seeds(db) -> None:
-    print("\n=== [1/7] Seeding ICBT programs (scripts) ===")
-    created, updated, skipped = seed_icbt_programs(db)
-    print(f"  created={created}  updated={updated}  skipped={skipped}")
-
-    print("\n=== [2/7] Seeding users (scripts) ===")
+    print("\n=== [1/7] Seeding users (scripts) ===")
     created, skipped = seed_users(db)
     print(f"  created={created}  skipped={skipped}")
 
-    print("\n=== [3/7] Seeding community groups & posts (scripts) ===")
+    print("\n=== [2/7] Seeding community groups & posts (scripts) ===")
     gc, gs, pc, ps = seed_community(db)
     print(f"  groups: created={gc}  skipped={gs}")
     print(f"  posts:  created={pc}  skipped={ps}")
+
+    print("\n=== [3/7] Seeding ICBT programs + community links (scripts) ===")
+    created, updated, skipped, links = seed_icbt_programs(db)
+    print(f"  created={created}  updated={updated}  skipped={skipped}  community_links_added={links}")
 
     print("\n=== [4/7] Seeding health workers (scripts) ===")
     created, skipped = seed_health_workers(db)

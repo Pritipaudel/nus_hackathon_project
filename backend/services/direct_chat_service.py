@@ -13,15 +13,9 @@ from backend.schema.direct_chat import ChatContactResponse, DirectMessageRespons
 def _assert_worker_patient_pair_can_chat(
     db: Session, user_a: User, user_b: User
 ) -> None:
-    roles = {user_a.role, user_b.role}
-    if roles != {USER_HEALTH_WORKER_ROLE, USER_PATIENT_ROLE}:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Direct messages are only allowed between a patient and their health worker.",
-        )
-    worker = user_a if user_a.role == USER_HEALTH_WORKER_ROLE else user_b
-    patient = user_b if user_b.role == USER_PATIENT_ROLE else user_a
-    if not HealthWorkerRepository(db).worker_has_patient_meeting(worker.id, patient.id):
+    # Use scheduled meetings as the source of truth (not User.role). Mis-set roles
+    # would break worker/patient inference and block chat even when a meeting exists.
+    if not HealthWorkerRepository(db).users_have_shared_meeting(user_a.id, user_b.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only message someone you have a scheduled session with.",

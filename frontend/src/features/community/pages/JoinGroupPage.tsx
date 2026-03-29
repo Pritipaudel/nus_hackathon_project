@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthBrandPanel } from '@features/auth/components/AuthBrandPanel';
 import { useAcceptGroupInvite, useCommunityInvitePreview } from '@features/community/hooks/useCommunity';
 import { useAuthStore } from '@shared/stores/authStore';
+import { env } from '@shared/lib/env';
 
 const JoinGroupPage = () => {
   const [searchParams] = useSearchParams();
@@ -41,7 +42,7 @@ const JoinGroupPage = () => {
   return (
     <div className="auth-page">
       <AuthBrandPanel
-        title="MindBridge"
+        title={env.appName}
         tagline={<>Your journey to inner peace starts here</>}
       >
         {!tokenValid ? (

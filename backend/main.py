@@ -16,7 +16,11 @@ from backend.api.direct_chat_router import direct_chat_router
 from backend.api.health_worker_router import health_worker_router
 from backend.api.problem_router import problem_router
 from backend.seed.community_problems_demo import ensure_demo_community_problems
-from backend.seed.demo_data import ensure_demo_direct_messages, run_demo_seed_if_needed
+from backend.seed.demo_data import (
+    ensure_demo_direct_messages,
+    ensure_health_worker_user_accounts,
+    run_demo_seed_if_needed,
+)
 
 load_dotenv()
 
@@ -24,6 +28,7 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     run_demo_seed_if_needed()
+    ensure_health_worker_user_accounts()
     ensure_demo_direct_messages()
     ensure_demo_community_problems()
     yield
