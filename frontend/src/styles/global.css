@@ -7007,6 +7007,18 @@ a:hover { text-decoration: underline; }
   max-width: 100%;
 }
 
+.wd-patient-chat {
+  width: 100%;
+  min-height: min(720px, calc(100vh - 140px));
+  display: flex;
+  flex-direction: column;
+}
+
+.wd-patient-chat .ch-page {
+  flex: 1;
+  min-height: 0;
+}
+
 /* ── Community comments (cp-comment-*) ──────────── */
 .cp-comments {
   display: flex;
