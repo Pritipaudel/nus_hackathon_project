@@ -199,6 +199,7 @@ class CommunityRepository:
             .options(
                 joinedload(CommunityPost.media),
                 joinedload(CommunityPost.community_group),
+                joinedload(CommunityPost.user),
             )
             .filter(CommunityPost.id == post_id)
             .first()
@@ -217,6 +218,7 @@ class CommunityRepository:
         query = self.db.query(CommunityPost).options(
             joinedload(CommunityPost.media),
             joinedload(CommunityPost.community_group),
+            joinedload(CommunityPost.user),
         )
         if category:
             query = query.filter(CommunityPost.category == category)

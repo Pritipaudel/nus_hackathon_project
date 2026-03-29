@@ -18,6 +18,7 @@ const SignupPage = () => {
     password: '',
     first_name: '',
     last_name: '',
+    anonymous_username: '',
     role: 'USER_PATIENT',
   });
 
@@ -28,7 +29,14 @@ const SignupPage = () => {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    signup(form);
+    const anonymous_username = form.anonymous_username.trim();
+    signup({
+      ...form,
+      email: form.email.trim(),
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+      anonymous_username,
+    });
   };
 
   const errorMessage =
@@ -90,6 +98,30 @@ const SignupPage = () => {
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="input-wrapper">
+              <label className="input-label" htmlFor="anonymous_username">
+                Community username
+              </label>
+              <div className="input-container">
+                <input
+                  id="anonymous_username"
+                  className="input-field"
+                  type="text"
+                  placeholder="e.g. calm_river_42"
+                  value={form.anonymous_username}
+                  onChange={set('anonymous_username')}
+                  autoComplete="username"
+                  minLength={2}
+                  maxLength={120}
+                  required
+                  aria-describedby="anonymous_username_hint"
+                />
+              </div>
+              <p id="anonymous_username_hint" className="input-hint">
+                How you appear in community and chat. Use a nickname—2–120 characters.
+              </p>
             </div>
 
             <div className="input-wrapper">

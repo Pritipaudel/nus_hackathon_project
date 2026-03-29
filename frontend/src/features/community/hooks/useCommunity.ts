@@ -134,6 +134,21 @@ export const useFlagPost = () =>
       communityApi.flag(postId, body),
   });
 
+export const useDeletePost = () => {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  return useMutation({
+    mutationFn: (postId: string) => communityApi.deletePost(postId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.trending });
+      if (user) {
+        void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.userPosts(user.id) });
+      }
+    },
+  });
+};
+
 export const useUserPosts = (userId: string) =>
   useQuery({
     queryKey: COMMUNITY_KEYS.userPosts(userId),

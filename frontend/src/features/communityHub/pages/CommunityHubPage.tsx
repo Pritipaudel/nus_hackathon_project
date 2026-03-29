@@ -10,6 +10,7 @@ import {
   useCommunityGroups,
   useCreateCommunityGroup,
   useCreateGroupInvite,
+  useDeletePost,
   useJoinCommunityGroup,
   useLeaveCommunityGroup,
   useMyCommunityGroups,
@@ -143,6 +144,7 @@ const CommunityHubPage = ({
     queryFn: () => communityApi.getPosts({ limit: 20 }),
     enabled: Boolean(user) && !isHealthWorkerPortal && tab === 'engagement',
   });
+  const deletePostMutation = useDeletePost();
 
   const enrolledIds = useMemo(
     () => new Set((myProgramsQuery.data ?? []).map((p) => p.program_id)),
@@ -183,6 +185,11 @@ const CommunityHubPage = ({
   const openChat = (m: HubMember) => {
     setActiveMember(m);
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+  };
+
+  const handleDeleteHubFeedPost = (postId: string) => {
+    if (!window.confirm('Delete this post? This cannot be undone.')) return;
+    deletePostMutation.mutate(postId);
   };
 
   const scrollChatEnd = () =>
@@ -929,6 +936,9 @@ const CommunityHubPage = ({
             <div className="ch-activity-feed__list">
               {(postsQuery.data ?? []).map((post) => {
                 const initial = [...post.username][0]?.toUpperCase() ?? '?';
+                const isOwnPost = Boolean(user?.id && post.user_id === user.id);
+                const isDeleting =
+                  deletePostMutation.isPending && deletePostMutation.variables === post.id;
                 return (
                   <div key={post.id} className="ch-feed-row">
                     <div className="ch-feed-row__avatar">{initial}</div>
@@ -941,6 +951,19 @@ const CommunityHubPage = ({
                       </p>
                       <span className="ch-feed-row__time">{timeLabel(post.created_at)}</span>
                     </div>
+                    {isOwnPost && (
+                      <div className="ch-feed-row__actions">
+                        <button
+                          type="button"
+                          className="ch-feed-row__delete"
+                          disabled={isDeleting}
+                          onClick={() => handleDeleteHubFeedPost(post.id)}
+                          aria-label="Delete post"
+                        >
+                          {isDeleting ? <span className="btn-spinner" aria-hidden /> : 'Delete'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
