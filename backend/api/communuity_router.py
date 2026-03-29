@@ -13,7 +13,7 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from backend.core.database import get_db
-from backend.core.dependencies import get_current_user
+from backend.core.dependencies import get_current_user, get_optional_current_user
 from backend.models.user import User
 from backend.repository.community_repository import CommunityRepository
 from backend.schema.community import (
@@ -31,6 +31,7 @@ from backend.schema.community import (
     FlagPostRequest,
     MyCommunityGroupResponse,
     PostMediaResponse,
+    ReactionType,
     ReactPostRequest,
 )
 from backend.services.community_service import (
@@ -48,7 +49,11 @@ from backend.services.community_service import delete_post as delete_post_servic
 communuity_router = APIRouter(prefix="/community", tags=["community"])
 
 
-def _post_to_response(repo: CommunityRepository, post) -> CommunityPostResponse:
+def _post_to_response(
+    repo: CommunityRepository,
+    post,
+    viewer: User | None = None,
+) -> CommunityPostResponse:
     reaction_count = repo.get_post_reaction_count(post.id)
     flag_count = repo.get_post_flag_count(post.id)
     group = (
@@ -56,6 +61,14 @@ def _post_to_response(repo: CommunityRepository, post) -> CommunityPostResponse:
         if post.community_group
         else None
     )
+    my_reaction: ReactionType | None = None
+    if viewer is not None:
+        rt = repo.get_user_reaction_for_post(post.id, viewer.id)
+        if rt:
+            try:
+                my_reaction = ReactionType(rt)
+            except ValueError:
+                my_reaction = None
     return CommunityPostResponse(
         id=post.id,
         user_id=post.user_id,
@@ -71,6 +84,7 @@ def _post_to_response(repo: CommunityRepository, post) -> CommunityPostResponse:
         ],
         reaction_count=reaction_count,
         flag_count=flag_count,
+        my_reaction=my_reaction,
     )
 
 
@@ -326,6 +340,7 @@ def list_community_posts(
     page: int = Query(default=1, ge=1, description="1-based page number"),
     limit: int = Query(default=20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
+    viewer: User | None = Depends(get_optional_current_user),
 ):
     repo = CommunityRepository(db)
     posts = repo.list_posts(
@@ -337,7 +352,7 @@ def list_community_posts(
         page=page,
         limit=limit,
     )
-    return [_post_to_response(repo, post) for post in posts]
+    return [_post_to_response(repo, post, viewer) for post in posts]
 
 
 @communuity_router.get(
@@ -371,6 +386,7 @@ def list_user_posts(
     page: int = Query(default=1, ge=1, description="1-based page number"),
     limit: int = Query(default=20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
+    viewer: User | None = Depends(get_optional_current_user),
 ):
     repo = CommunityRepository(db)
     posts = repo.list_posts(
@@ -382,7 +398,7 @@ def list_user_posts(
         page=page,
         limit=limit,
     )
-    return [_post_to_response(repo, post) for post in posts]
+    return [_post_to_response(repo, post, viewer) for post in posts]
 
 
 @communuity_router.get(
@@ -423,6 +439,7 @@ def list_trending_posts(
 def get_post_by_id(
     post_id: uuid.UUID,
     db: Session = Depends(get_db),
+    viewer: User | None = Depends(get_optional_current_user),
 ):
     repo = CommunityRepository(db)
     post = repo.get_post(post_id)
@@ -431,7 +448,7 @@ def get_post_by_id(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    return _post_to_response(repo, post)
+    return _post_to_response(repo, post, viewer)
 
 
 @communuity_router.delete(

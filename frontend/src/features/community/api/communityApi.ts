@@ -54,6 +54,57 @@ export interface CommunityInvitePreview {
   inviter_display_name: string | null;
 }
 
+/** Trending row from GET /problem/list-with-count (first bucket). */
+export interface CommunityProblemTrendingItem {
+  id: string;
+  title: string;
+  description: string | null;
+  upvote_count: number;
+  has_upvoted: boolean;
+  category_origin: string;
+}
+
+export interface CommunityProblemItem {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  severity_level?: number | null;
+  upvote_count: number;
+  created_at: string;
+  has_upvoted: boolean;
+}
+
+export interface CommunityProblemCategoryGroup {
+  category: string;
+  total_upvotes: number;
+  problems: (CommunityProblemTrendingItem | CommunityProblemItem)[];
+}
+
+export interface CreateCommunityProblemBody {
+  title: string;
+  description?: string | null;
+  category?: string;
+  severity_level?: number | null;
+  community_group_id?: string | null;
+}
+
+export interface CommunityProblemCreated extends CommunityProblemItem {
+  category: string;
+  severity_level?: number | null;
+}
+
+export interface ProblemUpvoteResult {
+  status: string;
+  upvote_count: number;
+}
+
+export function isTrendingProblemItem(
+  p: CommunityProblemTrendingItem | CommunityProblemItem,
+): p is CommunityProblemTrendingItem {
+  return 'category_origin' in p && !('created_at' in p);
+}
+
 export const communityApi = {
   getPosts: async (params?: GetPostsParams): Promise<CommunityPost[]> => {
     const { data } = await apiClient.get<CommunityPost[]>('/community/posts', { params });
@@ -146,6 +197,21 @@ export const communityApi = {
 
   getUserPosts: async (userId: string): Promise<CommunityPost[]> => {
     const { data } = await apiClient.get<CommunityPost[]>(`/community/users/${userId}/posts`);
+    return data;
+  },
+
+  getProblemsGrouped: async (): Promise<CommunityProblemCategoryGroup[]> => {
+    const { data } = await apiClient.get<CommunityProblemCategoryGroup[]>('/problem/list-with-count');
+    return data;
+  },
+
+  createProblem: async (body: CreateCommunityProblemBody): Promise<CommunityProblemCreated> => {
+    const { data } = await apiClient.post<CommunityProblemCreated>('/problem/create', body);
+    return data;
+  },
+
+  toggleProblemUpvote: async (problemId: string): Promise<ProblemUpvoteResult> => {
+    const { data } = await apiClient.post<ProblemUpvoteResult>(`/problem/upvote/${problemId}`);
     return data;
   },
 };

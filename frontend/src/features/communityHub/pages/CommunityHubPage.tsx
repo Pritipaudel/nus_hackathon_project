@@ -22,7 +22,7 @@ type Tab = 'members' | 'recommended' | 'engagement';
 export type CommunityHubVariant = 'patient' | 'health_worker';
 
 export type CommunityHubPageProps = {
-  /** `patient` — hub with Recommended & Engagement; chat lists workers linked via meetings. */
+  /** `patient` — hub with Recommended & Engagement; chat lists workers linked via meetings. Anonymous problems live on the Community Feed. */
   variant?: CommunityHubVariant;
 };
 
@@ -564,8 +564,8 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
         <div className="ch-engagement">
           <div className="ch-engagement__intro">
             <p className="ch-engagement__intro-text">
-              Manage your groups, invite others, see programme activity across communities, and browse the feed. Find
-              more groups to join under Recommended.
+              Manage groups and invites, programme engagement, and a snapshot of the feed. Anonymous problems and
+              trending support are on the <strong>Community Feed</strong>. Discover groups under <strong>Recommended</strong>.
             </p>
           </div>
 

@@ -78,6 +78,10 @@ class CommunityPostResponse(BaseModel):
     media_urls: list[PostMediaResponse]
     reaction_count: int
     flag_count: int
+    my_reaction: ReactionType | None = Field(
+        default=None,
+        description="Authenticated viewer's reaction on this post, if any",
+    )
 
 
 class CommunityTrendingPostResponse(BaseModel):
