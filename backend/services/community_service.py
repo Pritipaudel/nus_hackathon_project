@@ -12,7 +12,7 @@ from minio.error import S3Error
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.core.minio_client import MINIO_ENDPOINT, minio_client
+from backend.core.minio_client import MINIO_PUBLIC_HOST, minio_client
 from backend.models.community import CommunityPost, MediaType
 from backend.models.user import User
 from backend.repository.community_repository import CommunityRepository
@@ -86,7 +86,7 @@ def _build_object_name(
 
 
 def _public_object_url(bucket_name: str, object_name: str) -> str:
-    return f"http://{MINIO_ENDPOINT}/{bucket_name}/{object_name}"
+    return f"http://{MINIO_PUBLIC_HOST}/{bucket_name}/{object_name}"
 
 
 def _upload_media_to_minio(

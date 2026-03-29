@@ -7,6 +7,8 @@ from minio import Minio
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:7545")
+# Host (and optional port) used in URLs returned to browsers; defaults to MINIO_ENDPOINT.
+MINIO_PUBLIC_HOST = os.getenv("MINIO_PUBLIC_HOST", MINIO_ENDPOINT)
 MINIO_ACCESS_KEY = os.getenv(
     "MINIO_ACCESS_KEY", os.getenv("MINIO_ROOT_USER", "minioadmin")
 )

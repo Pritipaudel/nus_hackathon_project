@@ -22,21 +22,21 @@ export function parseCommunityProblemMirror(raw: string): ParsedProblemMirror | 
 
   const lines = text.split(/\r?\n/);
   const catM = /^Community problem · (.+)$/.exec(lines[0] ?? '');
-  if (!catM) return null;
+  if (!catM?.[1]) return null;
   const problemCategoryLabel = catM[1].trim();
 
   let severity = 1;
   const sevM = /^Severity: (\d)\/5$/.exec(lines[1] ?? '');
-  if (sevM) {
+  if (sevM?.[1]) {
     const n = parseInt(sevM[1], 10);
     severity = Number.isFinite(n) ? Math.min(5, Math.max(1, n)) : 1;
   }
 
   let i = 2;
-  while (i < lines.length && lines[i].trim() === '') i++;
+  while (i < lines.length && (lines[i] ?? '').trim() === '') i++;
 
   const titleM = /^Title: (.+)$/.exec(lines[i] ?? '');
-  if (!titleM) return null;
+  if (!titleM?.[1]) return null;
   const title = titleM[1].trim();
   i += 1;
 

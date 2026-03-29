@@ -1,4 +1,7 @@
 start:
+	docker compose up --build
+
+start-local:
 	uv run uvicorn backend.main:app --reload
 
 migrate:

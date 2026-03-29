@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
 import { useIcbtPrograms, useMyIcbtPrograms, useEnrollIcbt, useUpdateIcbtProgress } from '../hooks/useIcbt';
-import { formatRecommendedForCommunities } from '../utils/recommendedLabel';
 
 type FilterTab = 'all' | 'enrolled' | 'completed' | 'available';
 type DifficultyFilter = 'all' | 'Beginner' | 'Intermediate' | 'Advanced';

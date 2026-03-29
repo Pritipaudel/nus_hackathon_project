@@ -1,0 +1,15 @@
+.git
+.gitignore
+**/__pycache__
+**/*.pyc
+.venv
+venv
+frontend/node_modules
+frontend/dist
+minio_data
+*.md
+.cursor
+.pytest_cache
+.coverage
+htmlcov
+terminals

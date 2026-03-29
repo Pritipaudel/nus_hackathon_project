@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from backend.core.minio_client import MINIO_ENDPOINT, minio_client
+from backend.core.minio_client import MINIO_PUBLIC_HOST, minio_client
 from backend.repository.health_worker_repository import HealthWorkerRepository
 from backend.repository.user_repository import UserRepository
 
@@ -197,7 +197,7 @@ async def upload_worker_photo(
     worker_user_id: uuid.UUID,
     file: UploadFile,
 ) -> str:
-    """Upload a photo to MinIO and save the public URL on the HealthWorker row."""
+  
     import mimetypes as _mime
     content_type = file.content_type or ""
     if not content_type.startswith("image/"):
@@ -223,7 +223,7 @@ async def upload_worker_photo(
         content_type=content_type,
     )
 
-    photo_url = f"http://{MINIO_ENDPOINT}/{WORKER_PHOTO_BUCKET}/{object_name}"
+    photo_url = f"http://{MINIO_PUBLIC_HOST}/{WORKER_PHOTO_BUCKET}/{object_name}"
 
     repo = HealthWorkerRepository(db)
     hw = repo.update_photo_url(worker_id=worker_user_id, photo_url=photo_url)
