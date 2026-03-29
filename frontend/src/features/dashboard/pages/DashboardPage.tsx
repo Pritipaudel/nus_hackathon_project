@@ -96,9 +96,9 @@ const DashboardPage = () => {
     window.location.replace('/login');
   };
 
-  const initials = user
-    ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
-    : '?';
+  const firstInitial = user?.first_name?.trim()?.[0] ?? '';
+  const lastInitial = user?.last_name?.trim()?.[0] ?? '';
+  const initials = `${firstInitial}${lastInitial}`.toUpperCase() || '?';
 
   return (
     <div className="ds-shell">
@@ -350,8 +350,8 @@ const DashboardPage = () => {
                         dash.upcoming_meetings.length === 0 &&
                         !dash.latest_certification
                       )) && (
-                        <p className="dh-empty">No recent activity yet.</p>
-                      )}
+                          <p className="dh-empty">No recent activity yet.</p>
+                        )}
                     </div>
                   </div>
 
