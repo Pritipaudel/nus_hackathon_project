@@ -11,6 +11,7 @@ from backend.api.icbt_router import icbt_router
 from backend.api.health_worker_router import health_worker_router
 from backend.api.chat_router import chat_router
 from backend.api.chat_mock_router import chat_mock_router
+from backend.api.problem_router import problem_router
 
 load_dotenv()
 
@@ -34,3 +35,4 @@ app.include_router(communuity_router)
 app.include_router(health_worker_router)
 app.include_router(chat_router)
 app.include_router(chat_mock_router)
+app.include_router(problem_router)
