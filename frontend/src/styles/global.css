@@ -4357,6 +4357,16 @@ a:hover {
   color: #dc2626;
 }
 
+.cp-action--delete:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.cp-action--delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .cp-action--flagged {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -6700,6 +6710,35 @@ a:hover {
 .ch-feed-row__time {
   font-size: var(--font-size-xs);
   color: var(--color-text-subtle);
+}
+
+.ch-feed-row__actions {
+  flex-shrink: 0;
+}
+
+.ch-feed-row__delete {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-base), color var(--transition-base);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ch-feed-row__delete:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.ch-feed-row__delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 /* ── Dashboard Home (dh-*) ──────────────────────── */

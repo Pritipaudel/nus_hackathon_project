@@ -167,6 +167,7 @@ class CommunityPost(Base):
         "CommunityPostFlag", back_populates="post", cascade="all, delete-orphan"
     )
     community_group = relationship("CommunityGroup", back_populates="posts")
+    user = relationship("User", foreign_keys=[user_id])
 
     __table_args__ = (
         Index("idx_community_posts_created_at", "created_at"),

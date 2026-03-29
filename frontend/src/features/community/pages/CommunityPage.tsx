@@ -7,6 +7,7 @@ import {
   useCreatePost,
   useReactToPost,
   useFlagPost,
+  useDeletePost,
   useCommunityProblemsGrouped,
   useCreateCommunityProblem,
   useToggleProblemUpvote,
@@ -118,6 +119,7 @@ const CommunityPage = () => {
   const createPost = useCreatePost();
   const reactMutation = useReactToPost();
   const flagMutation = useFlagPost();
+  const deletePostMutation = useDeletePost();
   const problemsGroupedQuery = useCommunityProblemsGrouped(Boolean(user));
   const myGroupsQuery = useMyCommunityGroups();
   const createProblemMut = useCreateCommunityProblem();
@@ -237,6 +239,17 @@ const CommunityPage = () => {
       { postId, body: { reason: 'Reported by user' } },
       { onSuccess: () => setFlagged((p) => new Set([...p, postId])) },
     );
+  };
+
+  const handleDeletePost = (postId: string) => {
+    if (
+      !window.confirm(
+        'Delete this post? This cannot be undone.',
+      )
+    ) {
+      return;
+    }
+    deletePostMutation.mutate(postId);
   };
 
   const submitProblem = (e: FormEvent) => {
@@ -509,6 +522,8 @@ const CommunityPage = () => {
               const isUpvoted =
                 localReactions[post.id] === 'UPVOTE' || post.my_reaction === 'UPVOTE';
               const displayCount = post.reaction_count;
+              const isOwnPost = Boolean(user?.id && post.user_id === user.id);
+              const isDeletingThis = deletePostMutation.isPending && deletePostMutation.variables === post.id;
               const probId = parsed?.problemId ?? null;
               const probMeta = probId ? problemSupportById.get(probId) : undefined;
               const problemVoting =
@@ -630,7 +645,26 @@ const CommunityPage = () => {
                         </svg>
                         Share
                       </button>
-                      {!flagged.has(post.id) ? (
+                      {isOwnPost ? (
+                        <button
+                          type="button"
+                          className="cp-action cp-action--delete"
+                          disabled={isDeletingThis}
+                          onClick={() => handleDeletePost(post.id)}
+                          aria-label="Delete post"
+                        >
+                          {isDeletingThis ? (
+                            <span className="btn-spinner" aria-hidden />
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+                            </svg>
+                          )}
+                          Delete
+                        </button>
+                      ) : !flagged.has(post.id) ? (
                         <button type="button" className="cp-action cp-action--flag" onClick={() => handleFlag(post.id)}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" />

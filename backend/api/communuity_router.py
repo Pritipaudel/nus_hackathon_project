@@ -49,6 +49,17 @@ from backend.services.community_service import delete_post as delete_post_servic
 communuity_router = APIRouter(prefix="/community", tags=["community"])
 
 
+def _post_display_username(post) -> str:
+    """Prefer the author's stored anonymous_username; otherwise a stable anonymous handle."""
+    author = getattr(post, "user", None)
+    if author is not None:
+        name = (author.anonymous_username or "").strip()
+        if name:
+            return name
+    uid_hex = str(post.user_id).replace("-", "")
+    return f"anonymous-{uid_hex[:8]}"
+
+
 def _post_to_response(
     repo: CommunityRepository,
     post,
@@ -72,7 +83,7 @@ def _post_to_response(
     return CommunityPostResponse(
         id=post.id,
         user_id=post.user_id,
-        username=f"anonymous-{str(post.user_id)[:8]}",
+        username=_post_display_username(post),
         content=post.content,
         category=CommunityCategory(post.category),
         community_group=group,
