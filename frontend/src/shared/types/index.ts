@@ -15,6 +15,7 @@ export type {
   UserCertification,
 } from './api';
 export type { User, UserRole, TokenResponse, AuthResponse, LoginRequest, SignupRequest } from './auth';
+export type { OnboardingResponse } from './onboarding';
 export type {
   WorkerDashboardSection,
   PatientMoodEntry,

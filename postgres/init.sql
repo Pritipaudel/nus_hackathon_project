@@ -1,0 +1,1 @@
+-- Optional: extensions or seed SQL. Schema is managed by Alembic from the backend.

@@ -22,11 +22,13 @@ nus_hackathon_project/
 │   ├── env.py                   # Alembic migration environment
 │   └── versions/                # Migration revisions
 ├── postgres/
-│   └── docker_postgres_init.sql # Postgres init script
+│   └── init.sql                 # Optional Postgres init (schema via Alembic)
 ├── minio_data/                  # MinIO persisted data
 ├── tests/
 ├── scripts/
-├── Docker-compose.yml           # Docker services (Postgres + MinIO)
+├── docker-compose.yml           # Postgres, MinIO, backend API, frontend (nginx)
+├── Dockerfile.backend
+├── Dockerfile.frontend
 ├── alembic.ini                  # Alembic configuration
 ├── makefile                     # Common run and migration commands
 ├── pyproject.toml               # Python project/dependencies
@@ -48,7 +50,42 @@ nus_hackathon_project/
 - uv (package/dependency runner)
 - Uvicorn
 
-## Run Locally
+## Run with Docker Compose
+
+From the repository root (builds images, starts Postgres, MinIO, API, and frontend):
+
+```bash
+docker compose up --build
+```
+
+Equivalent:
+
+```bash
+make start
+```
+
+- **Frontend:** http://localhost:3000 (static build behind nginx)
+- **API:** http://localhost:8000
+- **Postgres:** `localhost:55432` (user/password/db from `POSTGRES_*` below)
+- **MinIO:** API `localhost:7545`, console `localhost:7546`
+
+The backend container runs `alembic upgrade head` on startup, then serves the app with Uvicorn.
+
+Optional environment overrides (examples):
+
+```bash
+VITE_API_BASE_URL=http://localhost:8000/ JWT_SECRET_KEY=your-secret docker compose up --build
+```
+
+`MINIO_PUBLIC_HOST` (default `localhost:7545`) is the host browsers use for media URLs; the MinIO client inside the backend uses the internal service hostname.
+
+Detached mode:
+
+```bash
+docker compose up -d --build
+```
+
+## Run locally without Docker (API only)
 
 Install dependencies:
 
@@ -56,13 +93,11 @@ Install dependencies:
 uv sync
 ```
 
-Start the API server in reload mode:
+Start the API with hot reload:
 
 ```bash
-make start
+make start-local
 ```
-
-Server command used by Makefile:
 
 ```bash
 uv run uvicorn backend.main:app --reload
@@ -92,23 +127,12 @@ Important variables used in this project:
 - `MINIO_CONSOLE_PORT`
 - `MINIO_ROOT_USER`
 - `MINIO_ROOT_PASSWORD`
-- `MINIO_ENDPOINT` (for app MinIO client, e.g. `localhost:7545`)
+- `MINIO_ENDPOINT` (MinIO hostname:port for the SDK; in Compose the backend sets this to the MinIO service)
+- `MINIO_PUBLIC_HOST` (host:port embedded in media URLs for browsers; default matches `MINIO_ENDPOINT`)
 - `MINIO_ACCESS_KEY`
 - `MINIO_SECRET_KEY`
-
-## Redeploy with Docker Compose
-
-From project root:
-
-### 1) Build and start (or redeploy after code/config changes)
-
-```bash
-docker compose up -d --build
-```
-
-
-
-
+- `VITE_API_BASE_URL` (Compose build arg for the frontend image)
+- `BACKEND_PORT`, `FRONTEND_PORT`, `POSTGRES_PORT`, `MINIO_S3_PORT`, `MINIO_CONSOLE_PORT` (published ports)
 
 ## Migrations
 

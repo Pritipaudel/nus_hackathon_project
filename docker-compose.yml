@@ -1,10 +1,31 @@
 services:
+  postgres:
+    image: postgres:16.1
+    container_name: hackathon-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-55432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-appdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   wiseminioservices:
     image: minio/minio:latest
     container_name: hackathon-minio
+    restart: unless-stopped
     ports:
-      - "${MINIO_S3_PORT:-7545}:9000"    # S3 API
-      - "${MINIO_CONSOLE_PORT:-7546}:9001"    # Web UI
+      - "${MINIO_S3_PORT:-7545}:9000"
+      - "${MINIO_CONSOLE_PORT:-7546}:9001"
     volumes:
       - ./minio_data:/data
     environment:
@@ -12,20 +33,45 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     command: server --console-address ":9001" /data
 
-
-  postgres:
-    image: postgres:16.1
-    container_name: hackathon-pg
-    restart: always
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: hackathon-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
     environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-appdb}
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-      - ./postgres/docker_postgres_init.sql:/docker-entrypoint-initdb.d/init.sql
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      MINIO_ENDPOINT: wiseminioservices:9000
+      MINIO_PUBLIC_HOST: ${MINIO_PUBLIC_HOST:-localhost:7545}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wiseminioservices:
+        condition: service_started
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/}
+        VITE_APP_NAME: ${VITE_APP_NAME:-उत्थान}
+        VITE_APP_ENV: ${VITE_APP_ENV:-production}
+    container_name: hackathon-frontend
+    restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-55432}:5432"
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
 
 volumes:
   pg_data:
