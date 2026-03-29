@@ -124,3 +124,8 @@ Or use Makefile shortcuts:
 make migrate
 make downgrade
 ```
+
+## Seeding Database 
+```bash
+uv run python scripts/seed_all.py
+```

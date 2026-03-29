@@ -11,6 +11,7 @@ Order:
   5. seed_training           — depends on users
   6. seed_meetings           — depends on users + health workers
   7. seed_anonymous_problems — depends on community groups
+  8. seed_problem_upvotes — depends on community groups
 """
 
 from __future__ import annotations
@@ -34,39 +35,43 @@ from scripts.seed_health_workers import seed_health_workers  # noqa: E402
 from scripts.seed_training import seed_training  # noqa: E402
 from scripts.seed_meetings import seed_meetings  # noqa: E402
 from scripts.seed_anonymous_problems import seed_anonymous_problems  # noqa: E402
-
+from scripts.seed_problem_upvotes import seed_problem_upvotes # noqa: E402
 
 def main() -> None:
     db = SessionLocal()
     try:
-        print("\n=== [1/7] Seeding ICBT programs ===")
+        print("\n=== [1/8] Seeding ICBT programs ===")
         created, updated, skipped = seed_icbt_programs(db)
         print(f"  created={created}  updated={updated}  skipped={skipped}")
 
-        print("\n=== [2/7] Seeding users ===")
+        print("\n=== [2/8] Seeding users ===")
         created, skipped = seed_users(db)
         print(f"  created={created}  skipped={skipped}")
 
-        print("\n=== [3/7] Seeding community groups & posts ===")
+        print("\n=== [3/8] Seeding community groups & posts ===")
         gc, gs, pc, ps = seed_community(db)
         print(f"  groups: created={gc}  skipped={gs}")
         print(f"  posts:  created={pc}  skipped={ps}")
 
-        print("\n=== [4/7] Seeding health workers ===")
+        print("\n=== [4/8] Seeding health workers ===")
         created, skipped = seed_health_workers(db)
         print(f"  created={created}  skipped={skipped}")
 
-        print("\n=== [5/7] Seeding training programs & enrollments ===")
+        print("\n=== [5/8] Seeding training programs & enrollments ===")
         pc, ps, ec, es = seed_training(db)
         print(f"  programs:    created={pc}  skipped={ps}")
         print(f"  enrollments: created={ec}  skipped={es}")
 
-        print("\n=== [6/7] Seeding meetings ===")
+        print("\n=== [6/8] Seeding meetings ===")
         created, skipped = seed_meetings(db)
         print(f"  created={created}  skipped={skipped}")
 
-        print("\n=== [7/7] Seeding anonymous problems ===")
+        print("\n=== [7/8] Seeding anonymous problems ===")
         created, skipped = seed_anonymous_problems(db)
+        print(f"  created={created}  skipped={skipped}")
+
+        print("\n=== [8/8] Seeding anonymous problems ===")
+        created, skipped = seed_problem_upvotes(db)
         print(f"  created={created}  skipped={skipped}")
 
         print("\n All seeds completed successfully.")
