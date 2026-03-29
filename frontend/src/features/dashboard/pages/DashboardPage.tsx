@@ -11,11 +11,11 @@ import CommunityHubPage from '@features/communityHub/pages/CommunityHubPage';
 
 type Section = 'home' | 'programs' | 'community' | 'community-hub' | 'workers' | 'training';
 
+/** Home (stats overview) is not in the nav — only opened via the profile block. */
 const NAV_ITEMS: { id: Section; label: string }[] = [
-  { id: 'home', label: 'Home' },
-  { id: 'programs', label: 'iCBT Programmes' },
   { id: 'community', label: 'Community Feed' },
   { id: 'community-hub', label: 'My Community' },
+  { id: 'programs', label: 'iCBT Programmes' },
   { id: 'workers', label: 'Health Workers' },
   { id: 'training', label: 'Training' },
 ];
@@ -67,7 +67,8 @@ const StatIcon = ({ type }: { type: 'progress' | 'programs' | 'meetings' | 'cert
 
 const DashboardPage = () => {
   const { user, clearAuth } = useAuthStore();
-  const [section, setSection] = useState<Section>('home');
+  /** Default: Community Feed after load/refresh. Profile → Home overview. */
+  const [section, setSection] = useState<Section>('community');
 
   useMe();
 
@@ -108,13 +109,20 @@ const DashboardPage = () => {
         </nav>
 
         <div className="ds-sidebar__footer">
-          <div className="ds-sidebar__user">
+          <button
+            type="button"
+            className="ds-sidebar__user ds-sidebar__user--nav-home"
+            onClick={() => setSection('home')}
+            aria-label="Open Home — your overview and stats"
+          >
             <div className="ds-sidebar__avatar">{initials}</div>
             <div className="ds-sidebar__userinfo">
-              <span className="ds-sidebar__username">{user?.first_name} {user?.last_name}</span>
+              <span className="ds-sidebar__username">
+                {user?.first_name} {user?.last_name}
+              </span>
               <span className="ds-sidebar__email">{user?.email}</span>
             </div>
-          </div>
+          </button>
           <button type="button" className="ds-signout" onClick={handleSignOut}>
             Sign out
           </button>

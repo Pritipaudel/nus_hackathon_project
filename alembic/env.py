@@ -14,6 +14,7 @@ import backend.models.user  # noqa: F401 — register model with Base metadata
 import backend.models.icbt  # noqa: F401 — register model with Base metadata
 import backend.models.community  # noqa: F401 — register model with Base metadata
 import backend.models.health_worker  # noqa: F401 — register model with Base metadata
+import backend.models.direct_message  # noqa: F401 — register model with Base metadata
 import backend.models.chat  # noqa: F401 — register model with Base metadata
 import backend.models.problem  # noqa: F401
 

@@ -1,4 +1,10 @@
-export type WorkerDashboardSection = 'overview' | 'patients' | 'meetings' | 'certifications' | 'community';
+export type WorkerDashboardSection =
+  | 'community'
+  | 'chat'
+  | 'overview'
+  | 'patients'
+  | 'meetings'
+  | 'certifications';
 
 export interface PatientMoodEntry {
   day: string;

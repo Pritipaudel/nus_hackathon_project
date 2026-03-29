@@ -5,6 +5,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import type { LoginRequest } from '@shared/types';
 
 import { useLogin } from '../hooks/useLogin';
+import { AuthBrandPanel } from '../components/AuthBrandPanel';
 
 const LoginPage = () => {
   const { mutate: login, isPending, error } = useLogin();
@@ -31,27 +32,10 @@ const LoginPage = () => {
 
   return (
     <div className="auth-page">
-      <div className="auth-page__panel">
-        <div className="auth-page__panel-logo">N</div>
-        <h2 className="auth-page__panel-title">NUS Hackathon 2026</h2>
-        <p className="auth-page__panel-sub">
-          Sign in to access your dashboard and manage your hackathon project.
-        </p>
-        <div className="auth-page__panel-features">
-          <div className="auth-page__panel-feature">
-            <span className="auth-page__panel-feature-dot" />
-            JWT-secured authentication
-          </div>
-          <div className="auth-page__panel-feature">
-            <span className="auth-page__panel-feature-dot" />
-            Guided onboarding flow
-          </div>
-          <div className="auth-page__panel-feature">
-            <span className="auth-page__panel-feature-dot" />
-            Real-time backend health
-          </div>
-        </div>
-      </div>
+      <AuthBrandPanel
+        title="MindBridge"
+        tagline={<>Your journey to inner peace starts here</>}
+      />
 
       <div className="auth-page__form-side">
         <div className="auth-card">

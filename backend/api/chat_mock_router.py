@@ -1,16 +1,16 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.core.dependencies import get_current_user
 from backend.models.user import User
-from backend.schema.chat_mock import MockChatQuestionRequest, MockChatQuestionResponse
-from backend.services.chat_mock_service import get_single_sided_mock_reply
+from backend.schema.chat_mock import MockChatRequest, MockChatResponse
+from backend.services.mock_chat_service import mock_nepali_reply
 
-chat_mock_router = APIRouter(tags=["chat-mock"])
+chat_mock_router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @chat_mock_router.post(
-    "/chat/mock/reply",
-    response_model=MockChatQuestionResponse,
+    "/mock/reply",
+    response_model=MockChatResponse,
     status_code=status.HTTP_200_OK,
     summary="Single-sided mock chat reply",
     description=(
@@ -18,16 +18,15 @@ chat_mock_router = APIRouter(tags=["chat-mock"])
         "when the input exactly matches supported mock strings."
     ),
 )
-def get_mock_chat_reply(
-    body: MockChatQuestionRequest,
-    current_user: User = Depends(get_current_user),
-):
-    reply, matched = get_single_sided_mock_reply(
-        question=body.question,
-        current_user=current_user,
-    )
-    return MockChatQuestionResponse(
-        question=body.question,
-        reply=reply,
-        matched=matched,
-    )
+def post_mock_reply(
+    body: MockChatRequest,
+    _user: User = Depends(get_current_user),
+) -> MockChatResponse:
+    q = body.question.strip()
+    if not q:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="question is required",
+        )
+    reply, matched = mock_nepali_reply(q)
+    return MockChatResponse(question=q, reply=reply, matched=matched)

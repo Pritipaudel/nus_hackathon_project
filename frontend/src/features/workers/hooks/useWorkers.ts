@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { chatQueryKeys } from '@features/chat/hooks/useDirectChat';
 import { workersApi } from '../api/workersApi';
 import type { AssignCertificationRequest, CreateCertificationRequest, ScheduleMeetingRequest } from '../api/workersApi';
 
@@ -36,6 +37,10 @@ export const useScheduleMeeting = () => {
     mutationFn: (body: ScheduleMeetingRequest) => workersApi.scheduleMeeting(body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: WORKERS_KEYS.myMeetings });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.contacts() });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'me'] });
+      void queryClient.invalidateQueries({ queryKey: WORKERS_KEYS.myPatients });
+      void queryClient.invalidateQueries({ queryKey: WORKERS_KEYS.myWorkerMeetings });
     },
   });
 };
