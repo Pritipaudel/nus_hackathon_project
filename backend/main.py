@@ -10,9 +10,11 @@ from backend.api.dashboard_router import dashboard_router
 from backend.core.middleware import AuthMiddleware
 from backend.router.auth_router import auth_router
 from backend.api.icbt_router import icbt_router
-from backend.api.health_worker_router import health_worker_router
 from backend.api.chat_mock_router import chat_mock_router
+from backend.api.chat_router import chat_router
 from backend.api.direct_chat_router import direct_chat_router
+from backend.api.health_worker_router import health_worker_router
+from backend.api.problem_router import problem_router
 from backend.seed.demo_data import ensure_demo_direct_messages, run_demo_seed_if_needed
 
 load_dotenv()
@@ -50,5 +52,7 @@ app.include_router(dashboard_router)
 app.include_router(icbt_router)
 app.include_router(communuity_router)
 app.include_router(health_worker_router)
+app.include_router(chat_router)
 app.include_router(chat_mock_router)
+app.include_router(problem_router)
 app.include_router(direct_chat_router)

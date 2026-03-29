@@ -1,7 +1,7 @@
 """add profile fields to health_workers
 
 Revision ID: 0015
-Revises: 0014
+Revises: 0014a
 Create Date: 2026-03-28 00:00:00.000000
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0015"
-down_revision: Union[str, Sequence[str], None] = "0014"
+down_revision: Union[str, Sequence[str], None] = "0014a"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

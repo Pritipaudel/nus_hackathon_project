@@ -620,6 +620,114 @@ Get trending community issues.
 
 ---
 
+# 🎭 Module: Anonymous Problems
+
+---
+
+## 1. Create Problem
+
+**POST** `/problem/create`
+
+
+### Request Body
+
+```json
+{
+  "title": "Relatives toxic behaviour",
+  "description": "Constant pressure about marriage and career comparisons.",
+  "category": "Family Trauma",
+  "severity_level": 3,
+  "community_group_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+}
+```
+
+- `description`, `severity_level`, and `community_group_id` are **optional**.
+
+### Response: `201 Created`
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "title": "Relatives toxic behaviour",
+  "description": "Constant pressure about marriage...",
+  "category": "Family Trauma",
+  "severity_level": 3,
+  "upvote_count": 1,
+  "has_upvoted": true,
+  "created_at": "2026-03-29T10:00:00Z"
+}
+```
+
+---
+
+## 2. List Problems (With Trending)
+
+**GET** `/problem/list-with-count`
+
+
+### Response: `200 OK`
+
+```json
+[
+  {
+    "category": "Trending",
+    "total_upvotes": 1250,
+    "problems": [
+      {
+        "id": "uuid-1",
+        "title": "Bus bad touch with girls",
+        "description": "I've noticed a lot of harassment...",
+        "upvote_count": 450,
+        "has_upvoted": false,
+        "category_origin": "Harassment"
+      }
+    ]
+  },
+  {
+    "category": "Harassment",
+    "total_upvotes": 540,
+    "problems": [
+      {
+        "id": "uuid-1",
+        "title": "Bus bad touch with girls",
+        "description": "I've noticed a lot of harassment...",
+        "category": "Harassment",
+        "severity_level": 4,
+        "upvote_count": 300,
+        "created_at": "2026-03-29T10:00:00Z",
+        "has_upvoted": false
+      }
+    ]
+  }
+]
+```
+
+
+---
+
+## 3. Toggle Upvote
+
+**POST** `/problem/upvote/{id}`
+
+An anonymous toggle to safely upvote or remove an upvote for a specific problem. If the user has already upvoted, calling this again will "unlike" it.
+
+### URL Parameters
+
+- `id`: The UUID of the problem to upvote.
+
+### Response: `200 OK`
+
+```json
+{
+  "status": "upvoted",
+  "upvote_count": 301
+}
+```
+
+- `status` can be either `"upvoted"` or `"removed"`.
+
+---
+
 # ✅ Notes (Important Design Decisions)
 
 * Anonymous identity handled via `username`
