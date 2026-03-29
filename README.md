@@ -1,174 +1,122 @@
-# nus_hackathon_project
+# Utthan - NUS Hackathon Project
 
-Backend service project with PostgreSQL, MinIO, and Alembic migrations.
+Utthan is a digital health platform designed to provide accessible mental health support and community-driven healthcare solutions. This project integrates a FastAPI backend, a React frontend, and utilizes PostgreSQL for data storage and MinIO for object storage.
 
-# Demo video, presentation video link
+## Presentation and Demo
+Presentation and demo video links:
 https://drive.google.com/drive/folders/1UMSCVnT31RI5xTlsIca7X_k91RVotdOC?usp=drive_link
 
-# Team name :The shamans 
-Members: 
+## The Shamans Team
+This project was developed by The Shamans for the Nepal US Hackathon.
+
+Team Members:
 - Pratham Adhikari
 - Preeti Paudel Jaisi
 - Shubham Raj Joshi
 - Prashant Sharma
 - Prasanna Jha
 
-## Project Structure
+## Project Overview
+Utthan provides a secure and anonymous environment for users to share community problems, access mental health programs (ICBT), and connect with health workers.
 
-```text
-nus_hackathon_project/
-├── frontend/                    #frontend code
-├── backend/
-│   ├── main.py                  # FastAPI app entrypoint
-│   ├── core/
-│   │   ├── database.py          # SQLAlchemy sync/async engine and DB helpers
-│   │   └── minio_client.py      # MinIO client setup
-│   ├── api/
-│   │   └── index_router.py      # Health-check route
-│   ├── models/                  # SQLAlchemy models
-│   ├── repository/              # Data-access layer
-│   ├── services/                # Business/service layer
-│   └── utils/
-├── alembic/
-│   ├── env.py                   # Alembic migration environment
-│   └── versions/                # Migration revisions
-├── postgres/
-│   └── init.sql                 # Optional Postgres init (schema via Alembic)
-├── minio_data/                  # MinIO persisted data
-├── tests/
-├── scripts/
-├── docker-compose.yml           # Postgres, MinIO, backend API, frontend (nginx)
-├── Dockerfile.backend
-├── Dockerfile.frontend
-├── alembic.ini                  # Alembic configuration
-├── makefile                     # Common run and migration commands
-├── pyproject.toml               # Python project/dependencies
-├── .env                         # Local environment variables
-└── .env.example                 # Example environment variables
-```
+### Technical Stack
+- Backend: Python 3.12, FastAPI, SQLAlchemy, Alembic
+- Frontend: Vite-based React application
+- Database: PostgreSQL 16
+- Storage: MinIO (S3-compatible)
+- Tools: uv for dependency management, Docker for containerization
 
-# Backend
-## Tech Stack(backend)
+## Getting Started (Non-Programmers)
 
-- Python 3.12+
-- FastAPI
-- SQLAlchemy
-- Alembic
-- PostgreSQL 16
-- MinIO (S3-compatible object storage)
-- asyncpg
-- python-dotenv
-- uv (package/dependency runner)
-- Uvicorn
+If you do not have a programming background, the easiest way to run this application is using Docker.
 
-## Run with Docker Compose
+### Prerequisites
+1. Download and install **Docker Desktop** for your operating system (Windows/Mac/Linux).
+2. Ensure Docker Desktop is running.
 
-From the repository root (builds images, starts Postgres, MinIO, API, and frontend):
+### Standard Setup Steps
+1. Open a terminal or command prompt in the project's root folder.
+2. Run the following command to start the entire system:
+   ```bash
+   docker compose up --build
+   ```
+3. Once the process is complete, you can access the application at:
+   - Frontend: http://localhost:3000
+   - API Documentation: http://localhost:8000/docs
 
-```bash
-docker compose up --build
-```
+## Development Environment Setup
 
-Equivalent:
+### 1. Environment Variables (.env)
+The project requires several environment variables to function correctly. These are stored in a `.env` file in the root directory.
 
-```bash
-make start
-```
+#### Step-by-Step Configuration:
+1. Locate the file named `.env.example` in the root folder.
+2. Create a copy of this file and rename it to `.env`.
+3. Open `.env` and configure the following sections:
 
-- **Frontend:** http://localhost:3000 (static build behind nginx)
-- **API:** http://localhost:8000
-- **Postgres:** `localhost:55432` (user/password/db from `POSTGRES_*` below)
-- **MinIO:** API `localhost:7545`, console `localhost:7546`
+**Database (PostgreSQL):**
+- `POSTGRES_USER`: The username for the database (default: `postgres`).
+- `POSTGRES_PASSWORD`: The password for the database (default: `postgres`).
+- `POSTGRES_DB`: The name of the database (default: `appdb`).
+- `POSTGRES_PORT`: The port the database runs on (default: `55432`).
 
-The backend container runs `alembic upgrade head` on startup, then serves the app with Uvicorn.
+**Object Storage (MinIO):**
+- `MINIO_ROOT_USER`: Admin username for MinIO (default: `minioadmin`).
+- `MINIO_ROOT_PASSWORD`: Admin password for MinIO (default: `minioadmin`).
+- `MINIO_S3_PORT`: Port for the S3 API (default: `7545`).
+- `MINIO_CONSOLE_PORT`: Port for the MinIO web dashboard (default: `7546`).
 
-Optional environment overrides (examples):
+**Frontend Configuration:**
+- `VITE_API_BASE_URL`: The URL where the backend API is reachable (e.g., `http://localhost:8000/`).
 
-```bash
-VITE_API_BASE_URL=http://localhost:8000/ JWT_SECRET_KEY=your-secret docker compose up --build
-```
+### 2. Manual Local Setup
+If you prefer not to use Docker for development:
 
-`MINIO_PUBLIC_HOST` (default `localhost:7545`) is the host browsers use for media URLs; the MinIO client inside the backend uses the internal service hostname.
+**Backend Setup:**
+1. Install dependencies: `uv sync`
+2. Run database migrations: `uv run alembic upgrade head`
+3. Start the server: `uv run uvicorn backend.main:app --reload`
 
-Detached mode:
+**Frontend Setup:**
+1. Navigate to the frontend directory: `cd frontend`
+2. Install dependencies: `npm install`
+3. Start the development server: `npm run dev`
 
-```bash
-docker compose up -d --build
-```
+## Detailed Project Structure
 
-## Run locally without Docker (API only)
+### Root Directory
+- `alembic/`: Database migration history and configuration.
+- `backend/`: Primary application logic and API source code.
+- `docs/`: Project documentation, architecture diagrams, and assets.
+- `frontend/`: React application source code and assets.
+- `postgres/`: Initialization scripts for the PostgreSQL database.
+- `scripts/`: Python and Shell scripts for data seeding and automation.
+- `tests/`: Automated unit and integration tests.
+- `docker-compose.yml`: Orchestration file for running all services via Docker.
 
-Install dependencies:
+### Backend Structure (`backend/`)
+- `api/`: Route definitions and endpoint handlers for the web API.
+- `core/`: Core configurations including database connections and security.
+- `models/`: Database schema definitions using SQLAlchemy.
+- `repository/`: Data access layer for database interactions.
+- `schema/`: Pydantic models for data validation and API documentation.
+- `services/`: Business logic layer that orchestrates repositories and external services.
 
-```bash
-uv sync
-```
+### Frontend Structure (`frontend/src/`)
+- `app/`: Global application state and core configuration.
+- `features/`: Component-based modules grouped by functionality:
+  - `auth/`: User authentication and registration.
+  - `chat/`: Direct and community messaging interfaces.
+  - `community/`: Community forum and problem-sharing modules.
+  - `icbt/`: Mental health program (ICBT) modules.
+  - `dashboard/`: User and health worker dashboard interfaces.
+- `shared/`: Reusable components, hooks, and utility functions used across the app.
+- `styles/`: Global CSS and theme configurations.
 
-Start the API with hot reload:
+## Troubleshooting
 
-```bash
-make start-local
-```
+### Windows Line Endings
+If you see "no such file or directory" when running Docker on Windows, it is likely due to CRLF line endings. The project includes automated fixes, but ensuring your Git is set to use LF line endings is recommended.
 
-```bash
-uv run uvicorn backend.main:app --reload
-```
-
-Default health endpoint:
-
-```text
-GET /
-```
-## Environment Variables
-
-Copy and customize:
-
-```bash
-cp .env.example .env
-```
-
-Important variables used in this project:
-
-- `POSTGRES_USER`
-- `POSTGRES_PASSWORD`
-- `POSTGRES_DB`
-- `POSTGRES_PORT`
-- `POSTGRES_HOST` (defaults to `localhost` in code if not set)
-- `MINIO_S3_PORT`
-- `MINIO_CONSOLE_PORT`
-- `MINIO_ROOT_USER`
-- `MINIO_ROOT_PASSWORD`
-- `MINIO_ENDPOINT` (MinIO hostname:port for the SDK; in Compose the backend sets this to the MinIO service)
-- `MINIO_PUBLIC_HOST` (host:port embedded in media URLs for browsers; default matches `MINIO_ENDPOINT`)
-- `MINIO_ACCESS_KEY`
-- `MINIO_SECRET_KEY`
-- `VITE_API_BASE_URL` (Compose build arg for the frontend image)
-- `BACKEND_PORT`, `FRONTEND_PORT`, `POSTGRES_PORT`, `MINIO_S3_PORT`, `MINIO_CONSOLE_PORT` (published ports)
-
-## Migrations
-
-Run latest migrations:
-
-```bash
-uv run alembic upgrade head
-```
-
-Or use Makefile shortcuts:
-
-```bash
-make migrate
-make downgrade
-```
-
-## Seeding Database 
-```bash
-uv run python scripts/seed_all.py
-```
-
-## To run frontend 
-```
-cd frontend 
-npm install 
-npm run dev
-```
-
+### Service Connectivity
+Ensure all ports specified in your `.env` file (e.g., 8000, 3000, 55432) are free on your machine before starting Docker.

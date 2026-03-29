@@ -12,7 +12,7 @@ COPY backend ./backend
 RUN uv sync --frozen --no-dev
 
 COPY scripts/docker-backend-entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh && sed -i 's/\r$//' /entrypoint.sh
 
 ENV PYTHONPATH=/app
 EXPOSE 8000
