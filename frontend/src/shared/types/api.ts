@@ -72,6 +72,8 @@ export interface CommunityPost {
   media_urls: PostMedia[];
   reaction_count: number;
   flag_count: number;
+  /** Present when the request is authenticated; viewer's reaction on this post. */
+  my_reaction?: 'UPVOTE' | 'HELPFUL' | null;
 }
 
 export interface TrendingPost {

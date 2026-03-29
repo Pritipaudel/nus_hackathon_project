@@ -378,6 +378,11 @@ const DashboardPage = () => {
                             : 'Browse iCBT programmes',
                           section: 'programs' as Section,
                         },
+                        {
+                          label: 'Community Feed',
+                          sub: 'Posts, anonymous problems & trending support',
+                          section: 'community' as Section,
+                        },
                         { label: 'My Community', sub: 'Chat, recommended programmes & engagement', section: 'community-hub' as Section },
                         { label: 'Find a health worker', sub: 'Book a session with a counsellor', section: 'workers' as Section },
                         { label: 'Explore training', sub: 'Earn a new certification', section: 'training' as Section },

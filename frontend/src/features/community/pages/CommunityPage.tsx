@@ -1,13 +1,22 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
+import { isTrendingProblemItem } from '../api/communityApi';
 import type { GetPostsParams } from '../api/communityApi';
 import {
   useCommunityPosts,
-  useTrendingPosts,
   useCreatePost,
   useReactToPost,
   useFlagPost,
+  useCommunityProblemsGrouped,
+  useCreateCommunityProblem,
+  useToggleProblemUpvote,
+  useMyCommunityGroups,
 } from '../hooks/useCommunity';
+import { useAuthStore } from '@shared/stores/authStore';
+import { parseCommunityProblemMirror } from '../utils/problemFeedPost';
+
+const TRENDING_PAGE_SIZE = 5;
+const FEED_PAGE_SIZE = 5;
 
 const CATEGORIES = ['ALL', 'GENERAL', 'ANXIETY', 'DEPRESSION', 'TRAUMA', 'STRESS'];
 
@@ -27,6 +36,26 @@ const timeAgo = (iso: string): string => {
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
+const PROBLEM_CATEGORIES = [
+  'Harassment',
+  'Family trauma',
+  'Access to care',
+  'Stigma',
+  'Workplace',
+  'General',
+] as const;
+
+const SeverityDots = ({ level }: { level: number }) => (
+  <span className="ch-problem-severity" aria-label={`Severity ${level} out of 5`}>
+    {[1, 2, 3, 4, 5].map((i) => (
+      <span
+        key={i}
+        className={`ch-problem-severity__dot ${i <= level ? 'ch-problem-severity__dot--on' : ''}`}
+      />
+    ))}
+  </span>
+);
+
 interface LocalComment {
   id: string;
   author: string;
@@ -39,13 +68,22 @@ interface LocalComment {
 }
 
 const CommunityPage = () => {
+  const user = useAuthStore((s) => s.user);
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [showCompose, setShowCompose] = useState(false);
+  const [showProblemCompose, setShowProblemCompose] = useState(false);
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('GENERAL');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [problemTitle, setProblemTitle] = useState('');
+  const [problemDesc, setProblemDesc] = useState('');
+  const [problemCategory, setProblemCategory] = useState<string>('General');
+  const [problemSeverity, setProblemSeverity] = useState(3);
+  const [problemGroupId, setProblemGroupId] = useState('');
+  const [trendingPageIndex, setTrendingPageIndex] = useState(0);
+  const [feedPage, setFeedPage] = useState(1);
 
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [localComments, setLocalComments] = useState<Record<string, LocalComment[]>>({});
@@ -56,28 +94,78 @@ const CommunityPage = () => {
   const [localReactions, setLocalReactions] = useState<Record<string, 'UPVOTE' | null>>({});
 
   const postsQueryParams = useMemo((): GetPostsParams => {
-    const p: GetPostsParams = { limit: 30 };
+    const p: GetPostsParams = { limit: FEED_PAGE_SIZE, page: feedPage };
     if (activeCategory !== 'ALL') p.category = activeCategory;
     return p;
-  }, [activeCategory]);
+  }, [activeCategory, feedPage]);
   const { data: rawPosts = [], isLoading } = useCommunityPosts(postsQueryParams);
   const posts = useMemo(
     () =>
       [...rawPosts].sort((a, b) => Number(!!b.is_verified) - Number(!!a.is_verified)),
     [rawPosts],
   );
-  const { data: trending = [] } = useTrendingPosts();
+  const feedHasNextPage = rawPosts.length === FEED_PAGE_SIZE;
+
+  useEffect(() => {
+    setFeedPage(1);
+  }, [activeCategory]);
+
+  useEffect(() => {
+    if (!isLoading && rawPosts.length === 0 && feedPage > 1) {
+      setFeedPage(1);
+    }
+  }, [isLoading, rawPosts.length, feedPage]);
   const createPost = useCreatePost();
   const reactMutation = useReactToPost();
   const flagMutation = useFlagPost();
+  const problemsGroupedQuery = useCommunityProblemsGrouped(Boolean(user));
+  const myGroupsQuery = useMyCommunityGroups();
+  const createProblemMut = useCreateCommunityProblem();
+  const toggleProblemUpvoteMut = useToggleProblemUpvote();
+
+  const problemSupportById = useMemo(() => {
+    const m = new Map<string, { upvote_count: number; has_upvoted: boolean }>();
+    for (const g of problemsGroupedQuery.data ?? []) {
+      for (const p of g.problems) {
+        if ('id' in p && 'upvote_count' in p && 'has_upvoted' in p) {
+          m.set(p.id, { upvote_count: p.upvote_count, has_upvoted: p.has_upvoted });
+        }
+      }
+    }
+    return m;
+  }, [problemsGroupedQuery.data]);
+
+  const trendingProblems = useMemo(() => {
+    const rows = problemsGroupedQuery.data ?? [];
+    const t = rows.find((g) => g.category === 'Trending');
+    if (!t) return [];
+    return t.problems.filter(isTrendingProblemItem);
+  }, [problemsGroupedQuery.data]);
+
+  const trendingTotalPages =
+    trendingProblems.length === 0 ? 0 : Math.ceil(trendingProblems.length / TRENDING_PAGE_SIZE);
+
+  useEffect(() => {
+    if (trendingTotalPages <= 0) {
+      setTrendingPageIndex(0);
+      return;
+    }
+    setTrendingPageIndex((i) => Math.min(i, trendingTotalPages - 1));
+  }, [trendingTotalPages]);
+
+  const trendingPageItems = useMemo(() => {
+    if (trendingProblems.length === 0) return [];
+    const start = trendingPageIndex * TRENDING_PAGE_SIZE;
+    return trendingProblems.slice(start, start + TRENDING_PAGE_SIZE);
+  }, [trendingProblems, trendingPageIndex]);
 
   const handleVote = (postId: string) => {
-    const current = localReactions[postId];
-    const next = current === 'UPVOTE' ? null : 'UPVOTE';
-    setLocalReactions((prev) => ({ ...prev, [postId]: next }));
-    if (next === 'UPVOTE') {
-      reactMutation.mutate({ postId, body: { reaction_type: 'UPVOTE' } });
-    }
+    const target = posts.find((p) => p.id === postId);
+    const alreadyUp =
+      localReactions[postId] === 'UPVOTE' || target?.my_reaction === 'UPVOTE';
+    if (alreadyUp) return;
+    setLocalReactions((prev) => ({ ...prev, [postId]: 'UPVOTE' }));
+    reactMutation.mutate({ postId, body: { reaction_type: 'UPVOTE' } });
   };
 
   const toggleComments = (postId: string) => {
@@ -151,6 +239,31 @@ const CommunityPage = () => {
     );
   };
 
+  const submitProblem = (e: FormEvent) => {
+    e.preventDefault();
+    const title = problemTitle.trim();
+    if (!title || createProblemMut.isPending) return;
+    createProblemMut.mutate(
+      {
+        title,
+        description: problemDesc.trim() || null,
+        category: problemCategory,
+        severity_level: problemSeverity,
+        community_group_id: problemGroupId || null,
+      },
+      {
+        onSuccess: () => {
+          setProblemTitle('');
+          setProblemDesc('');
+          setProblemCategory('General');
+          setProblemSeverity(3);
+          setProblemGroupId('');
+          setShowProblemCompose(false);
+        },
+      },
+    );
+  };
+
   return (
     <div className="cp-layout">
       <div className="cp-main">
@@ -170,6 +283,22 @@ const CommunityPage = () => {
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
               </svg>
               Post
+            </button>
+            <button
+              type="button"
+              className="cp-compose-bar__btn cp-compose-bar__btn--problem"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowProblemCompose(true);
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <path d="M8 10h.01" />
+                <path d="M12 10h.01" />
+                <path d="M16 10h.01" />
+              </svg>
+              Problem
             </button>
           </div>
         </div>
@@ -239,6 +368,116 @@ const CommunityPage = () => {
           </div>
         )}
 
+        {showProblemCompose && (
+          <div className="cp-compose cp-compose--problem">
+            <div className="cp-compose__topbar">
+              <span className="cp-compose__problem-label">Raise an anonymous problem</span>
+              <button type="button" className="cp-compose__close" onClick={() => setShowProblemCompose(false)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <p className="cp-compose__anon">
+              Shown in this feed with a <strong>Community problem</strong> highlight. Others can support it and discuss here.
+            </p>
+            <form className="cp-problem-form" onSubmit={submitProblem}>
+              <div className="ch-field">
+                <label className="ch-field__label" htmlFor="cpf-title">
+                  Title
+                </label>
+                <input
+                  id="cpf-title"
+                  className="ch-field__input"
+                  value={problemTitle}
+                  onChange={(e) => setProblemTitle(e.target.value)}
+                  placeholder="Short headline"
+                  maxLength={255}
+                  required
+                  autoComplete="off"
+                />
+              </div>
+              <div className="ch-field">
+                <label className="ch-field__label" htmlFor="cpf-desc">
+                  Details (optional)
+                </label>
+                <textarea
+                  id="cpf-desc"
+                  className="ch-field__textarea"
+                  value={problemDesc}
+                  onChange={(e) => setProblemDesc(e.target.value)}
+                  rows={3}
+                  placeholder="More context — still anonymous on the problem list"
+                />
+              </div>
+              <div className="ch-field">
+                <label className="ch-field__label" htmlFor="cpf-cat">
+                  Category
+                </label>
+                <select
+                  id="cpf-cat"
+                  className="ch-field__select"
+                  value={problemCategory}
+                  onChange={(e) => setProblemCategory(e.target.value)}
+                >
+                  {PROBLEM_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="ch-field">
+                <span className="ch-field__label">How severe does this feel? (1–5)</span>
+                <div className="cp-problem-form__range">
+                  <input
+                    type="range"
+                    min={1}
+                    max={5}
+                    value={problemSeverity}
+                    onChange={(e) => setProblemSeverity(Number(e.target.value))}
+                  />
+                  <SeverityDots level={problemSeverity} />
+                </div>
+              </div>
+              <div className="ch-field">
+                <label className="ch-field__label" htmlFor="cpf-group">
+                  Link to my group (optional)
+                </label>
+                <select
+                  id="cpf-group"
+                  className="ch-field__select"
+                  value={problemGroupId}
+                  onChange={(e) => setProblemGroupId(e.target.value)}
+                >
+                  <option value="">Not linked</option>
+                  {(myGroupsQuery.data ?? []).map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {createProblemMut.isError && (
+                <p className="cp-problem-form__error" role="alert">
+                  Could not publish. Check the title and try again.
+                </p>
+              )}
+              <div className="cp-compose__footer" style={{ marginTop: 'var(--space-3)' }}>
+                <div className="cp-compose__right" style={{ marginLeft: 'auto' }}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowProblemCompose(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={createProblemMut.isPending}>
+                    {createProblemMut.isPending && <span className="btn-spinner" />}
+                    {createProblemMut.isPending ? 'Publishing…' : 'Publish problem'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
+
         <div className="cp-filter-bar">
           {CATEGORIES.map((cat) => (
             <button
@@ -258,32 +497,71 @@ const CommunityPage = () => {
             <p>Loading posts...</p>
           </div>
         ) : (
-          <div className="cp-feed">
+          <>
+            <div className="cp-feed">
             {posts.length === 0 && (
               <div className="cp-empty">No posts in this category yet. Be the first to share.</div>
             )}
             {posts.map((post) => {
+              const parsed = parseCommunityProblemMirror(post.content);
               const postComments = localComments[post.id] ?? [];
               const isExpanded = expandedComments.has(post.id);
-              const isUpvoted = localReactions[post.id] === 'UPVOTE';
-              const displayCount = post.reaction_count + (isUpvoted ? 1 : 0);
+              const isUpvoted =
+                localReactions[post.id] === 'UPVOTE' || post.my_reaction === 'UPVOTE';
+              const displayCount = post.reaction_count;
+              const probId = parsed?.problemId ?? null;
+              const probMeta = probId ? problemSupportById.get(probId) : undefined;
+              const problemVoting =
+                probId != null &&
+                toggleProblemUpvoteMut.isPending &&
+                toggleProblemUpvoteMut.variables === probId;
+              const useProblemSupport = Boolean(parsed && probId);
 
               return (
-                <div key={post.id} className="cp-post">
+                <div key={post.id} className={`cp-post ${parsed ? 'cp-post--problem' : ''}`}>
                   <div className="cp-post__vote-col">
-                    <button
-                      type="button"
-                      className={`cp-vote-arrow ${isUpvoted ? 'cp-vote-arrow--up' : ''}`}
-                      onClick={() => handleVote(post.id)}
-                      title="Upvote"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill={isUpvoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="18 15 12 9 6 15" />
-                      </svg>
-                    </button>
-                    <span className={`cp-vote-count ${isUpvoted ? 'cp-vote-count--up' : ''}`}>
-                      {displayCount}
-                    </span>
+                    {useProblemSupport ? (
+                      <button
+                        type="button"
+                        className={`cp-feed-problem-vote ${probMeta?.has_upvoted ? 'cp-feed-problem-vote--on' : ''}`}
+                        disabled={problemVoting}
+                        onClick={() => probId && toggleProblemUpvoteMut.mutate(probId)}
+                        aria-pressed={Boolean(probMeta?.has_upvoted)}
+                        aria-label={
+                          probMeta?.has_upvoted
+                            ? `Supported, ${probMeta.upvote_count} votes`
+                            : `Support, ${probMeta?.upvote_count ?? 0} votes so far`
+                        }
+                      >
+                        {problemVoting ? (
+                          <span className="btn-spinner" aria-hidden />
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <polyline points="18 15 12 9 6 15" />
+                          </svg>
+                        )}
+                        <span className="cp-feed-problem-vote__count">{probMeta?.upvote_count ?? 0}</span>
+                        <span className="cp-feed-problem-vote__lbl">
+                          {probMeta?.has_upvoted ? 'Supported' : 'Support'}
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className={`cp-vote-arrow ${isUpvoted ? 'cp-vote-arrow--up' : ''}`}
+                          onClick={() => handleVote(post.id)}
+                          title="Upvote"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill={isUpvoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="18 15 12 9 6 15" />
+                          </svg>
+                        </button>
+                        <span className={`cp-vote-count ${isUpvoted ? 'cp-vote-count--up' : ''}`}>
+                          {displayCount}
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   <div className="cp-post__body">
@@ -307,7 +585,26 @@ const CommunityPage = () => {
                       </span>
                     </div>
 
-                    <p className="cp-post__content">{post.content}</p>
+                    {parsed ? (
+                      <div className="cp-post__problem-block">
+                        <div className="cp-post__problem-badges">
+                          <span className="cp-post__problem-pill">Community problem</span>
+                          <span className="ch-problem-chip">{parsed.problemCategoryLabel}</span>
+                          <SeverityDots level={parsed.severity} />
+                        </div>
+                        <h3 className="cp-post__problem-title">{parsed.title}</h3>
+                        {parsed.details ? (
+                          <p className="cp-post__problem-details">{parsed.details}</p>
+                        ) : null}
+                        {!probId ? (
+                          <p className="cp-post__problem-legacy">
+                            This is an older problem post — use the feed upvote for reactions.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="cp-post__content">{post.content}</p>
+                    )}
 
                     {post.media_urls.length > 0 && post.media_urls[0]?.url && (
                       <div className="cp-post__media">
@@ -409,7 +706,29 @@ const CommunityPage = () => {
                 </div>
               );
             })}
-          </div>
+            </div>
+            {(feedPage > 1 || feedHasNextPage) && (
+              <nav className="cp-trending-pager cp-feed-pager" aria-label="Feed pagination">
+                <button
+                  type="button"
+                  className="cp-trending-pager__btn"
+                  disabled={feedPage <= 1}
+                  onClick={() => setFeedPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </button>
+                <span className="cp-trending-pager__status">Page {feedPage}</span>
+                <button
+                  type="button"
+                  className="cp-trending-pager__btn"
+                  disabled={!feedHasNextPage}
+                  onClick={() => setFeedPage((p) => p + 1)}
+                >
+                  Next
+                </button>
+              </nav>
+            )}
+          </>
         )}
       </div>
 
@@ -418,38 +737,93 @@ const CommunityPage = () => {
           <div className="cp-sidebar__card-header">Community Info</div>
           <div className="cp-sidebar__card-body">
             <p className="cp-sidebar__desc">A safe, anonymous space for mental health support. All posts are private to this community.</p>
+            <p className="cp-sidebar__hint">
+              <strong>Problems</strong> appear in the feed with a highlight. Support counts on those cards also rank{' '}
+              <strong>trending problems</strong> below.
+            </p>
             <div className="cp-sidebar__stats">
               <div className="cp-sidebar__stat">
-                <span className="cp-sidebar__stat-val">{posts.length}</span>
-                <span className="cp-sidebar__stat-label">Posts</span>
+                <span className="cp-sidebar__stat-val">{feedPage}</span>
+                <span className="cp-sidebar__stat-label">Feed page</span>
               </div>
               <div className="cp-sidebar__stat">
-                <span className="cp-sidebar__stat-val">Live</span>
-                <span className="cp-sidebar__stat-label">Feed</span>
+                <span className="cp-sidebar__stat-val">{posts.length}</span>
+                <span className="cp-sidebar__stat-label">On page</span>
               </div>
             </div>
-            <button type="button" className="btn btn-primary btn-sm" style={{ width: '100%' }} onClick={() => setShowCompose(true)}>
-              Create post
-            </button>
+            <div className="cp-sidebar__actions">
+              <button type="button" className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => setShowCompose(true)}>
+                Create post
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm cp-sidebar__problem-btn"
+                style={{ flex: 1 }}
+                onClick={() => setShowProblemCompose(true)}
+              >
+                Create problem
+              </button>
+            </div>
           </div>
         </div>
 
-        {trending.length > 0 && (
-          <div className="cp-sidebar__card">
-            <div className="cp-sidebar__card-header">Trending</div>
-            <div className="cp-sidebar__card-body">
-              {trending.map((t, i) => (
-                <div key={t.id} className="cp-trending-item">
-                  <span className="cp-trending-item__rank">{i + 1}</span>
-                  <div className="cp-trending-item__body">
-                    <p className="cp-trending-item__text">{t.content.slice(0, 80)}{t.content.length > 80 ? '...' : ''}</p>
-                    <span className="cp-trending-item__score">{Math.round(t.trend_score)} reactions</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="cp-sidebar__card">
+          <div className="cp-sidebar__card-header">Trending problems</div>
+          <div className="cp-sidebar__card-body">
+            {problemsGroupedQuery.isLoading && <p className="cp-sidebar__muted">Loading…</p>}
+            {!problemsGroupedQuery.isLoading && trendingProblems.length === 0 && (
+              <p className="cp-sidebar__muted">Nothing trending yet. Publish a problem to get started.</p>
+            )}
+            <ul className="cp-trending-problems" aria-label="Trending anonymous problems">
+              {trendingPageItems.map((tp) => {
+                const voting =
+                  toggleProblemUpvoteMut.isPending && toggleProblemUpvoteMut.variables === tp.id;
+                return (
+                  <li key={tp.id} className="cp-trending-problem">
+                    <div className="cp-trending-problem__main">
+                      <span className="cp-trending-problem__title">{tp.title}</span>
+                      <span className="cp-trending-problem__meta">
+                        {tp.category_origin} · {tp.upvote_count} support
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className={`cp-trending-problem__vote ${tp.has_upvoted ? 'cp-trending-problem__vote--on' : ''}`}
+                      disabled={voting}
+                      onClick={() => toggleProblemUpvoteMut.mutate(tp.id)}
+                      aria-pressed={tp.has_upvoted}
+                    >
+                      {voting ? <span className="btn-spinner" /> : tp.has_upvoted ? '✓' : '+'}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {trendingTotalPages > 1 && (
+              <nav className="cp-trending-pager" aria-label="Trending problems pagination">
+                <button
+                  type="button"
+                  className="cp-trending-pager__btn"
+                  disabled={trendingPageIndex <= 0}
+                  onClick={() => setTrendingPageIndex((i) => Math.max(0, i - 1))}
+                >
+                  Previous
+                </button>
+                <span className="cp-trending-pager__status">
+                  Page {trendingPageIndex + 1} of {trendingTotalPages}
+                </span>
+                <button
+                  type="button"
+                  className="cp-trending-pager__btn"
+                  disabled={trendingPageIndex >= trendingTotalPages - 1}
+                  onClick={() => setTrendingPageIndex((i) => Math.min(trendingTotalPages - 1, i + 1))}
+                >
+                  Next
+                </button>
+              </nav>
+            )}
           </div>
-        )}
+        </div>
 
         <div className="cp-sidebar__card">
           <div className="cp-sidebar__card-header">Guidelines</div>

@@ -303,6 +303,18 @@ class CommunityRepository:
             or 0
         )
 
+    def get_user_reaction_for_post(
+        self, post_id: uuid.UUID, user_id: uuid.UUID
+    ) -> str | None:
+        return (
+            self.db.query(CommunityPostReaction.reaction_type)
+            .filter(
+                CommunityPostReaction.post_id == post_id,
+                CommunityPostReaction.user_id == user_id,
+            )
+            .scalar()
+        )
+
     def get_post_flag_count(self, post_id: uuid.UUID) -> int:
         return (
             self.db.query(func.count(CommunityPostFlag.id))
