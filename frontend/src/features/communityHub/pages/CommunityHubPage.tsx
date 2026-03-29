@@ -2,27 +2,30 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
-import { communityApi } from '@features/community/api/communityApi';
+import { communityApi, isTrendingProblemItem } from '@features/community/api/communityApi';
 import type { ChatContactDto } from '@features/chat/api/directChatApi';
 import { useChatContacts, useChatMessages, useSendChatMessage } from '@features/chat/hooks/useDirectChat';
 import {
   useCommunityGroups,
+  useCommunityProblemsGrouped,
   useCreateCommunityGroup,
+  useCreateCommunityProblem,
   useCreateGroupInvite,
   useJoinCommunityGroup,
   useLeaveCommunityGroup,
   useMyCommunityGroups,
+  useToggleProblemUpvote,
 } from '@features/community/hooks/useCommunity';
 import { useEnrollIcbt, useIcbtPrograms, useMyIcbtPrograms } from '@features/icbt/hooks/useIcbt';
 import { useAuthStore } from '@shared/stores/authStore';
 import type { IcbtProgram } from '@shared/types';
 
-type Tab = 'members' | 'recommended' | 'engagement';
+type Tab = 'members' | 'recommended' | 'problems' | 'engagement';
 
 export type CommunityHubVariant = 'patient' | 'health_worker';
 
 export type CommunityHubPageProps = {
-  /** `patient` — hub with Recommended & Engagement; chat lists workers linked via meetings. */
+  /** `patient` — hub with Recommended, Problems & Engagement; chat lists workers linked via meetings. */
   variant?: CommunityHubVariant;
 };
 
@@ -66,6 +69,26 @@ const GROUP_TYPE_OPTIONS = [
 const groupTypeLabel = (value: string) =>
   GROUP_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value;
 
+const PROBLEM_CATEGORIES = [
+  'Harassment',
+  'Family trauma',
+  'Access to care',
+  'Stigma',
+  'Workplace',
+  'General',
+] as const;
+
+const SeverityDots = ({ level }: { level: number }) => (
+  <span className="ch-problem-severity" aria-label={`Severity ${level} out of 5`}>
+    {[1, 2, 3, 4, 5].map((i) => (
+      <span
+        key={i}
+        className={`ch-problem-severity__dot ${i <= level ? 'ch-problem-severity__dot--on' : ''}`}
+      />
+    ))}
+  </span>
+);
+
 const icbtProgramCoverUrl = (id: string) => {
   const seeds = ['1506126613408-eca07ce68773', '1545205597-3d9d02c29597', '1499209974431-9dddcece7f88'];
   let h = 0;
@@ -99,6 +122,11 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
   const [newGroupValue, setNewGroupValue] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
   const [inviteCopiedGroupId, setInviteCopiedGroupId] = useState<string | null>(null);
+  const [problemTitle, setProblemTitle] = useState('');
+  const [problemDesc, setProblemDesc] = useState('');
+  const [problemCategory, setProblemCategory] = useState<string>('General');
+  const [problemSeverity, setProblemSeverity] = useState(3);
+  const [problemGroupId, setProblemGroupId] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const user = useAuthStore((s) => s.user);
 
@@ -122,6 +150,11 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
   const joinGroupMutation = useJoinCommunityGroup();
   const leaveGroupMutation = useLeaveCommunityGroup();
   const createInviteMutation = useCreateGroupInvite();
+  const problemsGroupedQuery = useCommunityProblemsGrouped(
+    Boolean(user) && !isHealthWorkerPortal && tab === 'problems',
+  );
+  const createProblemMut = useCreateCommunityProblem();
+  const toggleProblemUpvoteMut = useToggleProblemUpvote();
 
   const postsQuery = useQuery({
     queryKey: ['community', 'posts', 'hub-feed'],
@@ -143,6 +176,13 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
     () => (allGroupsQuery.data ?? []).filter((g) => !myGroupIdSet.has(g.id)),
     [allGroupsQuery.data, myGroupIdSet],
   );
+
+  const { trendingProblemsGroup, problemCategoryGroups } = useMemo(() => {
+    const rows = problemsGroupedQuery.data ?? [];
+    const trending = rows.find((g) => g.category === 'Trending');
+    const rest = rows.filter((g) => g.category !== 'Trending');
+    return { trendingProblemsGroup: trending, problemCategoryGroups: rest };
+  }, [problemsGroupedQuery.data]);
 
   const programsByEngagement = useMemo(() => {
     const list = [...(programsQuery.data ?? [])];
@@ -199,6 +239,9 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
       const d = discoverGroups.length;
       return `${n} iCBT programme${n === 1 ? '' : 's'} · ${d} group${d === 1 ? '' : 's'} you can join`;
     }
+    if (tab === 'problems') {
+      return 'Publish mirrors to Community Feed; upvotes here drive Trending problems.';
+    }
     const mg = myGroupsQuery.data?.length ?? 0;
     return `${mg} community group${mg === 1 ? '' : 's'} you belong to`;
   }, [
@@ -241,6 +284,30 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
     );
   };
 
+  const submitCreateProblem = (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = problemTitle.trim();
+    if (!title || createProblemMut.isPending) return;
+    createProblemMut.mutate(
+      {
+        title,
+        description: problemDesc.trim() || null,
+        category: problemCategory,
+        severity_level: problemSeverity,
+        community_group_id: problemGroupId || null,
+      },
+      {
+        onSuccess: () => {
+          setProblemTitle('');
+          setProblemDesc('');
+          setProblemCategory('General');
+          setProblemSeverity(3);
+          setProblemGroupId('');
+        },
+      },
+    );
+  };
+
   return (
     <div className="ch-page">
       <div className="ch-header">
@@ -255,14 +322,20 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
         </div>
         {!isHealthWorkerPortal && (
           <div className="ch-tab-bar">
-            {(['members', 'recommended', 'engagement'] as Tab[]).map((t) => (
+            {(['members', 'recommended', 'problems', 'engagement'] as Tab[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 className={`ch-tab ${tab === t ? 'ch-tab--active' : ''}`}
                 onClick={() => setTab(t)}
               >
-                {t === 'members' ? 'Members & Chat' : t === 'recommended' ? 'Recommended' : 'Engagement'}
+                {t === 'members'
+                  ? 'Members & Chat'
+                  : t === 'recommended'
+                    ? 'Recommended'
+                    : t === 'problems'
+                      ? 'Problems'
+                      : 'Engagement'}
               </button>
             ))}
           </div>
@@ -560,12 +633,259 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
         </div>
       )}
 
+      {tab === 'problems' && (
+        <div className="ch-engagement">
+          <div className="ch-engagement__intro">
+            <p className="ch-engagement__intro-text">
+              Anonymous problem cards live here. Each publish is mirrored to the <strong>Community Feed</strong> so
+              people can discuss and react. Problem <strong>upvotes on this tab</strong> decide what appears in{' '}
+              <strong>Trending problems</strong> below.
+            </p>
+          </div>
+
+          <div className="ch-problems-hero">
+            <div>
+              <h2 className="ch-problems-hero__title">Anonymous community problems</h2>
+              <p className="ch-problems-hero__text">
+                Raise issues without your name on the problem list. Support others with upvotes—those totals rank
+                Trending. The same story is posted to the feed for open conversation.
+              </p>
+            </div>
+            <span className="ch-problem-badge">Problem spotlight</span>
+          </div>
+
+          {problemsGroupedQuery.isLoading && (
+            <p className="ch-member-list__label">Loading community problems…</p>
+          )}
+          {problemsGroupedQuery.isError && (
+            <p className="ch-member-list__label">Could not load problems. Try again in a moment.</p>
+          )}
+
+          {trendingProblemsGroup && trendingProblemsGroup.problems.length > 0 && (
+            <section className="ch-hub-section" aria-labelledby="hub-trending-problems-heading">
+              <div className="ch-hub-section__head">
+                <h2 id="hub-trending-problems-heading" className="ch-hub-section__title">
+                  Trending problems
+                </h2>
+                <p className="ch-hub-section__sub">
+                  Highest support across the community right now. Swipe sideways on small screens.
+                </p>
+              </div>
+              <div className="ch-problem-trending-strip">
+                {trendingProblemsGroup.problems.map((p) => {
+                  if (!isTrendingProblemItem(p)) return null;
+                  const voting =
+                    toggleProblemUpvoteMut.isPending && toggleProblemUpvoteMut.variables === p.id;
+                  return (
+                    <article key={p.id} className="ch-problem-card ch-problem-card--trending">
+                      <div className="ch-problem-card__top">
+                        <span className="ch-problem-chip ch-problem-chip--accent">Problem</span>
+                        <span className="ch-problem-chip">{p.category_origin}</span>
+                      </div>
+                      <h3 className="ch-problem-card__title">{p.title}</h3>
+                      {p.description ? (
+                        <p className="ch-problem-card__desc">{p.description}</p>
+                      ) : (
+                        <p className="ch-problem-card__meta">No description</p>
+                      )}
+                      <button
+                        type="button"
+                        className={`ch-problem-upvote ${p.has_upvoted ? 'ch-problem-upvote--active' : ''}`}
+                        disabled={voting}
+                        onClick={() => toggleProblemUpvoteMut.mutate(p.id)}
+                      >
+                        {voting && <span className="btn-spinner" />}
+                        {p.has_upvoted ? 'Supported' : 'Upvote'} · {p.upvote_count}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          <section className="ch-hub-section" aria-labelledby="hub-report-problem-heading">
+            <div className="ch-hub-section__head">
+              <h2 id="hub-report-problem-heading" className="ch-hub-section__title">
+                Share a problem
+              </h2>
+              <p className="ch-hub-section__sub">
+                Your submission stays anonymous on problem cards. We also post a copy to the Community Feed for
+                review and discussion. Optionally link to a group you belong to.
+              </p>
+            </div>
+            <div className="ch-problem-form-grid">
+              <form className="ch-problem-form-card" onSubmit={submitCreateProblem}>
+                <div className="ch-field">
+                  <label className="ch-field__label" htmlFor="cp-title">
+                    Title
+                  </label>
+                  <input
+                    id="cp-title"
+                    className="ch-field__input"
+                    value={problemTitle}
+                    onChange={(e) => setProblemTitle(e.target.value)}
+                    placeholder="Short headline others will see"
+                    maxLength={255}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="ch-field">
+                  <label className="ch-field__label" htmlFor="cp-desc">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    id="cp-desc"
+                    className="ch-field__textarea"
+                    value={problemDesc}
+                    onChange={(e) => setProblemDesc(e.target.value)}
+                    placeholder="More context—still anonymous when published"
+                  />
+                </div>
+                <div className="ch-field">
+                  <label className="ch-field__label" htmlFor="cp-cat">
+                    Category
+                  </label>
+                  <select
+                    id="cp-cat"
+                    className="ch-field__select"
+                    value={problemCategory}
+                    onChange={(e) => setProblemCategory(e.target.value)}
+                  >
+                    {PROBLEM_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="ch-field">
+                  <label className="ch-field__label" htmlFor="cp-sev">
+                    How urgent or severe does this feel? (1–5)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <input
+                      id="cp-sev"
+                      type="range"
+                      min={1}
+                      max={5}
+                      value={problemSeverity}
+                      onChange={(e) => setProblemSeverity(Number(e.target.value))}
+                      style={{ flex: 1 }}
+                    />
+                    <SeverityDots level={problemSeverity} />
+                  </div>
+                </div>
+                <div className="ch-field">
+                  <label className="ch-field__label" htmlFor="cp-group">
+                    Link to my group (optional)
+                  </label>
+                  <select
+                    id="cp-group"
+                    className="ch-field__select"
+                    value={problemGroupId}
+                    onChange={(e) => setProblemGroupId(e.target.value)}
+                  >
+                    <option value="">Not linked to a group</option>
+                    {(myGroupsQuery.data ?? []).map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {createProblemMut.isError && (
+                  <div className="alert alert--error" role="alert">
+                    Could not submit. Check your title and try again.
+                  </div>
+                )}
+                <button type="submit" className="btn btn-primary" disabled={createProblemMut.isPending}>
+                  {createProblemMut.isPending && <span className="btn-spinner" />}
+                  {createProblemMut.isPending ? 'Publishing…' : 'Publish problem'}
+                </button>
+              </form>
+              <aside className="ch-problem-form-aside" aria-label="Privacy notes">
+                <p className="ch-problem-form-aside__title">Why this is safe</p>
+                <ul className="ch-problem-form-aside__list">
+                  <li>Your name does not appear on the problem card—only the title, category, and votes.</li>
+                  <li>A matching feed post uses your anonymous handle so others can comment and react there.</li>
+                  <li>Upvotes are private to you; others only see the total count on problem cards.</li>
+                  <li>Linking a group helps organisers see themes—it does not expose your profile.</li>
+                </ul>
+              </aside>
+            </div>
+          </section>
+
+          {problemCategoryGroups.length > 0 && (
+            <section className="ch-hub-section" aria-labelledby="hub-problems-by-cat-heading">
+              <div className="ch-hub-section__head">
+                <h2 id="hub-problems-by-cat-heading" className="ch-hub-section__title">
+                  Browse by category
+                </h2>
+                <p className="ch-hub-section__sub">
+                  Categories are ordered by total upvotes. Support issues that resonate with you.
+                </p>
+              </div>
+              <div className="ch-problem-cat-grid">
+                {problemCategoryGroups.map((grp) => (
+                  <div key={grp.category}>
+                    <p className="ch-activity-feed__title" style={{ marginBottom: 'var(--space-2)' }}>
+                      {grp.category}
+                      <span className="ch-problem-chip" style={{ marginLeft: 'var(--space-2)' }}>
+                        {grp.total_upvotes} upvotes · {grp.problems.length} problems
+                      </span>
+                    </p>
+                    <div className="ch-engagement-list">
+                      {grp.problems.map((p) => {
+                        if (!('created_at' in p)) return null;
+                        const voting =
+                          toggleProblemUpvoteMut.isPending && toggleProblemUpvoteMut.variables === p.id;
+                        const sev = p.severity_level ?? 1;
+                        return (
+                          <article key={p.id} className="ch-problem-card">
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div className="ch-problem-card__top">
+                                <span className="ch-problem-chip ch-problem-chip--accent">Problem</span>
+                                <span className="ch-problem-chip">{p.category}</span>
+                                <SeverityDots level={sev} />
+                              </div>
+                              <h3 className="ch-problem-card__title">{p.title}</h3>
+                              {p.description ? (
+                                <p className="ch-problem-card__desc">{p.description}</p>
+                              ) : null}
+                              <p className="ch-problem-card__meta">{timeLabel(p.created_at)}</p>
+                            </div>
+                            <button
+                              type="button"
+                              className={`ch-problem-upvote ${p.has_upvoted ? 'ch-problem-upvote--active' : ''}`}
+                              disabled={voting}
+                              onClick={() => toggleProblemUpvoteMut.mutate(p.id)}
+                            >
+                              {voting && <span className="btn-spinner" />}
+                              {p.has_upvoted ? 'Supported' : 'Upvote'}
+                              <span aria-hidden> · </span>
+                              {p.upvote_count}
+                            </button>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+
       {tab === 'engagement' && (
         <div className="ch-engagement">
           <div className="ch-engagement__intro">
             <p className="ch-engagement__intro-text">
-              Manage your groups, invite others, see programme activity across communities, and browse the feed. Find
-              more groups to join under Recommended.
+              Manage groups and invites, programme engagement, and a snapshot of the feed. To share or upvote anonymous
+              problems (and see Trending), open the <strong>Problems</strong> tab. Discover groups under{' '}
+              <strong>Recommended</strong>.
             </p>
           </div>
 

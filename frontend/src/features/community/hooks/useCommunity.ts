@@ -5,6 +5,7 @@ import { useAuthStore } from '@shared/stores/authStore';
 import { communityApi } from '../api/communityApi';
 import type {
   CreateCommunityGroupBody,
+  CreateCommunityProblemBody,
   GetPostsParams,
   ReactRequest,
   FlagRequest,
@@ -16,6 +17,7 @@ export const COMMUNITY_KEYS = {
   groups: ['community', 'groups'] as const,
   myGroups: ['community', 'groups', 'mine'] as const,
   userPosts: (userId: string) => ['community', 'user-posts', userId] as const,
+  problemsGrouped: ['community', 'problems', 'grouped'] as const,
 };
 
 export const useCommunityPosts = (params?: GetPostsParams) =>
@@ -137,3 +139,32 @@ export const useUserPosts = (userId: string) =>
     queryFn: () => communityApi.getUserPosts(userId),
     enabled: !!userId,
   });
+
+export const useCommunityProblemsGrouped = (enabled: boolean) =>
+  useQuery({
+    queryKey: COMMUNITY_KEYS.problemsGrouped,
+    queryFn: communityApi.getProblemsGrouped,
+    enabled,
+  });
+
+export const useCreateCommunityProblem = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateCommunityProblemBody) => communityApi.createProblem(body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.problemsGrouped });
+      void queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.trending });
+    },
+  });
+};
+
+export const useToggleProblemUpvote = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (problemId: string) => communityApi.toggleProblemUpvote(problemId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.problemsGrouped });
+    },
+  });
+};

@@ -1,10 +1,44 @@
 import uuid
-from sqlalchemy.orm import Session
+
 from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
+from backend.models.community import CommunityCategory, CommunityPost
 from backend.models.problem import AnonymousProblem, ProblemUpvote
 from backend.schema.problem import CreateProblemRequest
+
+
+def _mirror_post_content(
+    title: str,
+    description: str | None,
+    problem_category: str,
+    severity: int | None,
+) -> str:
+    sev = severity if severity is not None else 1
+    lines = [
+        f"Community problem · {problem_category}",
+        f"Severity: {sev}/5",
+        "",
+        f"Title: {title.strip()}",
+    ]
+    if description and description.strip():
+        lines.extend(["", "Details:", description.strip()])
+    return "\n".join(lines)
+
+
+def _feed_category_for_problem(problem_category: str) -> str:
+    c = (problem_category or "General").strip().lower()
+    if "trauma" in c or "harassment" in c:
+        return CommunityCategory.TRAUMA.value
+    if "stress" in c or "work" in c:
+        return CommunityCategory.STRESS.value
+    if "anxiety" in c:
+        return CommunityCategory.ANXIETY.value
+    if "depression" in c or "mood" in c:
+        return CommunityCategory.DEPRESSION.value
+    return CommunityCategory.GENERAL.value
+
 
 def create_problem(db: Session, request: CreateProblemRequest, user_id: uuid.UUID) -> AnonymousProblem:
     problem = AnonymousProblem(
@@ -13,7 +47,7 @@ def create_problem(db: Session, request: CreateProblemRequest, user_id: uuid.UUI
         category=request.category,
         severity_level=request.severity_level,
         community_group_id=request.community_group_id,
-        upvote_count=0
+        upvote_count=0,
     )
     try:
         db.add(problem)
@@ -22,6 +56,19 @@ def create_problem(db: Session, request: CreateProblemRequest, user_id: uuid.UUI
         initial_upvote = ProblemUpvote(problem_id=problem.id, user_id=user_id)
         db.add(initial_upvote)
         problem.upvote_count = 1
+
+        feed = CommunityPost(
+            user_id=user_id,
+            content=_mirror_post_content(
+                request.title,
+                request.description,
+                request.category,
+                request.severity_level,
+            ),
+            category=_feed_category_for_problem(request.category),
+            community_group_id=request.community_group_id,
+        )
+        db.add(feed)
 
         db.commit()
         db.refresh(problem)

@@ -3,7 +3,6 @@ import { useMemo, useRef, useState } from 'react';
 import type { GetPostsParams } from '../api/communityApi';
 import {
   useCommunityPosts,
-  useTrendingPosts,
   useCreatePost,
   useReactToPost,
   useFlagPost,
@@ -26,6 +25,15 @@ const timeAgo = (iso: string): string => {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 };
+
+/** Old problem→feed mirror appended this footer; strip for display (DB may still hold it). */
+function stripLegacyProblemMirrorFooter(raw: string): string {
+  if (!raw.startsWith('Community problem ·')) return raw;
+  return raw
+    .replace(/(\r?\n)+Discuss and react here\.[\s\S]*$/, '')
+    .replace(/ Discuss and react here\.[\s\S]*$/u, '')
+    .trimEnd();
+}
 
 interface LocalComment {
   id: string;
@@ -66,7 +74,6 @@ const CommunityPage = () => {
       [...rawPosts].sort((a, b) => Number(!!b.is_verified) - Number(!!a.is_verified)),
     [rawPosts],
   );
-  const { data: trending = [] } = useTrendingPosts();
   const createPost = useCreatePost();
   const reactMutation = useReactToPost();
   const flagMutation = useFlagPost();
@@ -307,7 +314,7 @@ const CommunityPage = () => {
                       </span>
                     </div>
 
-                    <p className="cp-post__content">{post.content}</p>
+                    <p className="cp-post__content">{stripLegacyProblemMirrorFooter(post.content)}</p>
 
                     {post.media_urls.length > 0 && post.media_urls[0]?.url && (
                       <div className="cp-post__media">
@@ -418,6 +425,10 @@ const CommunityPage = () => {
           <div className="cp-sidebar__card-header">Community Info</div>
           <div className="cp-sidebar__card-body">
             <p className="cp-sidebar__desc">A safe, anonymous space for mental health support. All posts are private to this community.</p>
+            <p className="cp-sidebar__hint">
+              Trending <strong>anonymous problems</strong> (problem upvotes) are on{' '}
+              <strong>My Community</strong> → <strong>Problems</strong> — not in this feed sidebar.
+            </p>
             <div className="cp-sidebar__stats">
               <div className="cp-sidebar__stat">
                 <span className="cp-sidebar__stat-val">{posts.length}</span>
@@ -433,23 +444,6 @@ const CommunityPage = () => {
             </button>
           </div>
         </div>
-
-        {trending.length > 0 && (
-          <div className="cp-sidebar__card">
-            <div className="cp-sidebar__card-header">Trending</div>
-            <div className="cp-sidebar__card-body">
-              {trending.map((t, i) => (
-                <div key={t.id} className="cp-trending-item">
-                  <span className="cp-trending-item__rank">{i + 1}</span>
-                  <div className="cp-trending-item__body">
-                    <p className="cp-trending-item__text">{t.content.slice(0, 80)}{t.content.length > 80 ? '...' : ''}</p>
-                    <span className="cp-trending-item__score">{Math.round(t.trend_score)} reactions</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="cp-sidebar__card">
           <div className="cp-sidebar__card-header">Guidelines</div>
