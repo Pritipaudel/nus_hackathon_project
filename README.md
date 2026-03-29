@@ -2,6 +2,9 @@
 
 Backend service project with PostgreSQL, MinIO, and Alembic migrations.
 
+#Demo video, presentation video link
+https://drive.google.com/drive/folders/1UMSCVnT31RI5xTlsIca7X_k91RVotdOC?usp=drive_link
+
 ## Project Structure
 
 ```text
@@ -128,4 +131,11 @@ make downgrade
 ## Seeding Database 
 ```bash
 uv run python scripts/seed_all.py
+```
+
+## to run frontend 
+```
+cd frontend 
+npm install 
+npm run dev
 ```
