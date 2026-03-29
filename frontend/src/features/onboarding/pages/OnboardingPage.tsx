@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useAuthStore } from '@shared/stores/authStore';
+import { env } from '@shared/lib/env';
 
 import { useCompleteOnboarding } from '@features/auth/hooks/useCompleteOnboarding';
 
@@ -120,7 +121,7 @@ const OnboardingPage = () => {
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
           </div>
-          <span className="ob-header__name">MindBridge</span>
+          <span className="ob-header__name">{env.appName}</span>
         </div>
 
         <div className="ob-steps">
@@ -163,7 +164,7 @@ const OnboardingPage = () => {
                   Hi {user?.first_name ?? 'there'} — you took a brave step.
                 </h1>
                 <p className="ob-welcome__desc">
-                  MindBridge uses <strong>inference-based CBT (iCBT)</strong> to help you work through thoughts, feelings, and daily challenges — at your own pace, in a way that reflects your cultural context.
+                  {env.appName} uses <strong>inference-based CBT (iCBT)</strong> to help you work through thoughts, feelings, and daily challenges — at your own pace, in a way that reflects your cultural context.
                 </p>
                 <div className="ob-welcome__tags">
                   <span className="ob-tag">Evidence-based iCBT</span>

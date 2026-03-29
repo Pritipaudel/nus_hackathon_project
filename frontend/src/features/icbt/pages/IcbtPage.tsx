@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useIcbtPrograms, useMyIcbtPrograms, useEnrollIcbt, useUpdateIcbtProgress } from '../hooks/useIcbt';
+import { formatRecommendedForCommunities } from '../utils/recommendedLabel';
 
 type FilterTab = 'all' | 'enrolled' | 'completed' | 'available';
 type DifficultyFilter = 'all' | 'Beginner' | 'Intermediate' | 'Advanced';
@@ -143,6 +144,7 @@ const IcbtPage = () => {
             const isEnrolled = enrolledIds.has(program.id);
             const isCompleted = completedIds.has(program.id);
             const isEnrolling = enrollMutation.isPending && enrollMutation.variables?.program_id === program.id;
+            const recommendedLabel = formatRecommendedForCommunities(program.community_metadata);
 
             return (
               <div key={program.id} className={`icbt-card ${isEnrolled ? 'icbt-card--enrolled' : ''}`}>
@@ -156,6 +158,11 @@ const IcbtPage = () => {
                     {program.duration_days && (
                       <span className="ds-badge ds-badge--outline">
                         {program.duration_days} days
+                      </span>
+                    )}
+                    {recommendedLabel && (
+                      <span className="ds-badge ds-badge--recommended" title={recommendedLabel}>
+                        {recommendedLabel}
                       </span>
                     )}
                     {isCompleted && <span className="ds-badge ds-badge--green">Completed</span>}

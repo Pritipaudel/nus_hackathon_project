@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import type { SignupRequest, UserRole } from '@shared/types';
+import { env } from '@shared/lib/env';
 
 import { useSignup } from '../hooks/useSignup';
 import { AuthBrandPanel } from '../components/AuthBrandPanel';
@@ -36,7 +37,7 @@ const SignupPage = () => {
   return (
     <div className="auth-page">
       <AuthBrandPanel
-        title="MindBridge"
+        title={env.appName}
         tagline={<>Create your account and begin your care journey</>}
       />
 

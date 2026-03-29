@@ -28,7 +28,7 @@ src/
   features/
     auth/               # Login, Signup pages + hooks + API
     dashboard/          # Dashboard page
-    onboarding/         # Onboarding flow (iCBT / MindBridge)
+    onboarding/         # Onboarding flow (iCBT / उत्थान)
   shared/
     api/                # Axios client, healthApi, index
     components/         # ErrorBoundary, UI components
@@ -63,7 +63,7 @@ Defined in `.env.development` (and `.env.production` for builds).
 
 ```
 VITE_API_BASE_URL=http://localhost:8000
-VITE_APP_NAME=MindBridge
+VITE_APP_NAME=उत्थान
 VITE_APP_ENV=development
 ```
 

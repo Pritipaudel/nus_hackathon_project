@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 
 import { communityApi } from '@features/community/api/communityApi';
@@ -14,16 +15,19 @@ import {
   useMyCommunityGroups,
 } from '@features/community/hooks/useCommunity';
 import { useEnrollIcbt, useIcbtPrograms, useMyIcbtPrograms } from '@features/icbt/hooks/useIcbt';
+import { formatRecommendedForCommunities } from '@features/icbt/utils/recommendedLabel';
 import { useAuthStore } from '@shared/stores/authStore';
 import type { IcbtProgram } from '@shared/types';
 
-type Tab = 'members' | 'recommended' | 'engagement';
+type Tab = 'members' | 'recommended' | 'groups' | 'engagement';
 
 export type CommunityHubVariant = 'patient' | 'health_worker';
 
 export type CommunityHubPageProps = {
-  /** `patient` — hub with Recommended & Engagement; chat lists workers linked via meetings. Anonymous problems live on the Community Feed. */
+  /** `patient` — hub with Members, Recommended (iCBT), Groups (discover/join), Engagement. Anonymous problems live on the Community Feed. */
   variant?: CommunityHubVariant;
+  /** Opens Health Workers so the patient can book a session (chat list fills after a meeting exists). */
+  onNavigateToBookSession?: () => void;
 };
 
 type HubMember = {
@@ -90,7 +94,10 @@ const chatContactToMember = (c: ChatContactDto): HubMember => {
   };
 };
 
-const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
+const CommunityHubPage = ({
+  variant = 'patient',
+  onNavigateToBookSession,
+}: CommunityHubPageProps) => {
   const [tab, setTab] = useState<Tab>('members');
   const [activeMember, setActiveMember] = useState<HubMember | null>(null);
   const [draft, setDraft] = useState('');
@@ -99,6 +106,7 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
   const [newGroupValue, setNewGroupValue] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
   const [inviteCopiedGroupId, setInviteCopiedGroupId] = useState<string | null>(null);
+  const [groupDiscoverSearch, setGroupDiscoverSearch] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const user = useAuthStore((s) => s.user);
 
@@ -112,11 +120,18 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
   );
   const sendMessageMutation = useSendChatMessage();
 
+  const chatMessagesDenied =
+    messagesQuery.isError &&
+    axios.isAxiosError(messagesQuery.error) &&
+    (messagesQuery.error.response?.status === 403 || messagesQuery.error.response?.status === 404);
+
   const programsQuery = useIcbtPrograms();
   const myProgramsQuery = useMyIcbtPrograms();
   const enrollMutation = useEnrollIcbt();
 
-  const allGroupsQuery = useCommunityGroups();
+  const allGroupsQuery = useCommunityGroups(
+    Boolean(user) && !isHealthWorkerPortal && tab === 'groups',
+  );
   const myGroupsQuery = useMyCommunityGroups();
   const createGroupMutation = useCreateCommunityGroup();
   const joinGroupMutation = useJoinCommunityGroup();
@@ -143,6 +158,21 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
     () => (allGroupsQuery.data ?? []).filter((g) => !myGroupIdSet.has(g.id)),
     [allGroupsQuery.data, myGroupIdSet],
   );
+
+  const discoverGroupsDisplay = useMemo(() => {
+    const sorted = [...discoverGroups].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+    );
+    const q = groupDiscoverSearch.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter(
+      (g) =>
+        g.name.toLowerCase().includes(q) ||
+        g.value.toLowerCase().includes(q) ||
+        (g.description ?? '').toLowerCase().includes(q) ||
+        groupTypeLabel(g.group_type).toLowerCase().includes(q),
+    );
+  }, [discoverGroups, groupDiscoverSearch]);
 
   const programsByEngagement = useMemo(() => {
     const list = [...(programsQuery.data ?? [])];
@@ -182,6 +212,12 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
     return [...rows].sort((a, b) => statusRank[a.status] - statusRank[b.status]);
   }, [contactsQuery.data]);
 
+  const noPatientChatContacts =
+    !isHealthWorkerPortal &&
+    !contactsQuery.isLoading &&
+    !contactsQuery.isError &&
+    displayMembers.length === 0;
+
   useEffect(() => {
     if (!activeMember || !messagesQuery.data) return;
     scrollChatEnd();
@@ -196,8 +232,11 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
     }
     if (tab === 'recommended') {
       const n = programsQuery.data?.length ?? 0;
+      return `${n} iCBT programme${n === 1 ? '' : 's'} in the catalogue`;
+    }
+    if (tab === 'groups') {
       const d = discoverGroups.length;
-      return `${n} iCBT programme${n === 1 ? '' : 's'} · ${d} group${d === 1 ? '' : 's'} you can join`;
+      return `${d} group${d === 1 ? '' : 's'} you can join`;
     }
     const mg = myGroupsQuery.data?.length ?? 0;
     return `${mg} community group${mg === 1 ? '' : 's'} you belong to`;
@@ -255,14 +294,20 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
         </div>
         {!isHealthWorkerPortal && (
           <div className="ch-tab-bar">
-            {(['members', 'recommended', 'engagement'] as Tab[]).map((t) => (
+            {(['members', 'recommended', 'groups', 'engagement'] as Tab[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 className={`ch-tab ${tab === t ? 'ch-tab--active' : ''}`}
                 onClick={() => setTab(t)}
               >
-                {t === 'members' ? 'Members & Chat' : t === 'recommended' ? 'Recommended' : 'Engagement'}
+                {t === 'members'
+                  ? 'Members & Chat'
+                  : t === 'recommended'
+                    ? 'Recommended'
+                    : t === 'groups'
+                      ? 'Groups'
+                      : 'Engagement'}
               </button>
             ))}
           </div>
@@ -282,9 +327,20 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
             {!contactsQuery.isLoading &&
               !contactsQuery.isError &&
               displayMembers.length === 0 && (
-                <p className="ch-member-list__label">
-                  No one to message yet. A contact appears after you have a scheduled session together.
-                </p>
+                <div className="ch-member-list__empty">
+                  <p className="ch-member-list__hint">
+                    No one to message yet. A contact appears after you have a scheduled session together.
+                  </p>
+                  {!isHealthWorkerPortal && onNavigateToBookSession && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm ch-member-list__book-btn"
+                      onClick={onNavigateToBookSession}
+                    >
+                      Book a health worker session
+                    </button>
+                  )}
+                </div>
               )}
             {displayMembers.map((m) => (
               <button
@@ -326,12 +382,33 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
-                <p>
-                  {isHealthWorkerPortal
-                    ? 'Select a patient to start a conversation'
-                    : 'Select a health worker to start a conversation'}
-                </p>
-                <span>Only people linked through a session appear in your list.</span>
+                {noPatientChatContacts ? (
+                  <>
+                    <p className="ch-chat__empty-lead">You do not have anyone to message yet</p>
+                    <span>
+                      Schedule a session with a health worker from the directory. After it is on your calendar, they
+                      show up here so you can chat about your care and iCBT progress.
+                    </span>
+                    {onNavigateToBookSession && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-md ch-chat__empty-btn"
+                        onClick={onNavigateToBookSession}
+                      >
+                        Find a health worker & book a session
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      {isHealthWorkerPortal
+                        ? 'Select a patient to start a conversation'
+                        : 'Select a health worker to start a conversation'}
+                    </p>
+                    <span>Only people linked through a session appear in your list.</span>
+                  </>
+                )}
               </div>
             ) : (
               <>
@@ -359,7 +436,11 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
                 <div className="ch-chat__messages">
                   {messagesQuery.isLoading && <p className="ch-chat__no-msgs">Loading messages…</p>}
                   {messagesQuery.isError && (
-                    <p className="ch-chat__no-msgs">Could not load messages for this conversation.</p>
+                    <p className="ch-chat__no-msgs">
+                      {chatMessagesDenied
+                        ? 'This chat is not available yet. Refresh the page after booking, or try again in a moment.'
+                        : 'Could not load messages for this conversation.'}
+                    </p>
                   )}
                   {(messagesQuery.data ?? []).map((msg) => {
                     const isOwn = user != null && msg.sender_id === user.id;
@@ -428,8 +509,8 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
         <div className="ch-recommended">
           <div className="ch-recommended__intro">
             <p className="ch-recommended__intro-text">
-              Enrol in evidence-based iCBT modules and join community groups that reflect your identity or goals—all
-              in one place.
+              Enrol in evidence-based iCBT modules. Browse and join community groups from the <strong>Groups</strong>{' '}
+              tab.
             </p>
           </div>
 
@@ -454,6 +535,7 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
               const isEnrolling = enrollMutation.isPending && enrollMutation.variables?.program_id === p.id;
               const enrolled = totalCommunityEnrollment(p);
               const trending = enrolled >= 3;
+              const recommendedLabel = formatRecommendedForCommunities(p.community_metadata);
               return (
                 <div key={p.id} className={`ch-prog-card ${isEnrolled ? 'ch-prog-card--enrolled' : ''}`}>
                   <div className="ch-prog-card__cover-wrap">
@@ -470,6 +552,11 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
                         {p.duration_days != null ? ` · ${p.duration_days} days` : ''}
                       </span>
                     </div>
+                    {recommendedLabel && (
+                      <span className="ds-badge ds-badge--recommended ch-prog-card__recommended" title={recommendedLabel}>
+                        {recommendedLabel}
+                      </span>
+                    )}
                     <h3 className="ch-prog-card__title">{p.title}</h3>
                     <p className="ch-prog-card__desc">{p.description ?? ''}</p>
 
@@ -505,6 +592,17 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
             })}
             </div>
           </section>
+        </div>
+      )}
+
+      {tab === 'groups' && (
+        <div className="ch-recommended">
+          <div className="ch-recommended__intro">
+            <p className="ch-recommended__intro-text">
+              Groups you are not in yet. Join to post in the Community Feed for that group and copy invite links from
+              the <strong>Engagement</strong> tab once you are a member.
+            </p>
+          </div>
 
           <section className="ch-hub-section" aria-labelledby="hub-discover-heading">
             <div className="ch-hub-section__head">
@@ -512,9 +610,27 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
                 Discover groups
               </h2>
               <p className="ch-hub-section__sub">
-                Groups you are not in yet. Join to post in the feed and share invite links from the Engagement tab.
+                Open groups you can join with one tap. Your memberships and invites are under Engagement.
               </p>
             </div>
+            {!allGroupsQuery.isLoading && !allGroupsQuery.isError && discoverGroups.length > 0 && (
+              <div className="ch-groups-search-wrap">
+                <div className="icbt-search ch-groups-search">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="search"
+                    className="icbt-search__input"
+                    placeholder="Search by name, place, religion, or type…"
+                    value={groupDiscoverSearch}
+                    onChange={(e) => setGroupDiscoverSearch(e.target.value)}
+                    aria-label="Search groups to join"
+                  />
+                </div>
+              </div>
+            )}
             {allGroupsQuery.isLoading && <p className="ch-member-list__label">Loading groups…</p>}
             {allGroupsQuery.isError && (
               <p className="ch-member-list__label">Could not load groups. Try refreshing the page.</p>
@@ -525,7 +641,13 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
                   You are in every available group, or none exist yet. Create a new one under Engagement.
                 </p>
               )}
-              {discoverGroups.map((g) => {
+              {discoverGroups.length > 0 &&
+                discoverGroupsDisplay.length === 0 &&
+                !allGroupsQuery.isLoading &&
+                !allGroupsQuery.isError && (
+                  <p className="ch-member-list__label">No groups match your search. Try another keyword.</p>
+                )}
+              {discoverGroupsDisplay.map((g) => {
                 const joining = joinGroupMutation.isPending && joinGroupMutation.variables === g.id;
                 return (
                   <div key={g.id} className="ch-eng-card">
@@ -565,7 +687,8 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
           <div className="ch-engagement__intro">
             <p className="ch-engagement__intro-text">
               Manage groups and invites, programme engagement, and a snapshot of the feed. Anonymous problems and
-              trending support are on the <strong>Community Feed</strong>. Discover groups under <strong>Recommended</strong>.
+              trending support are on the <strong>Community Feed</strong>. Discover new groups under the{' '}
+              <strong>Groups</strong> tab.
             </p>
           </div>
 
@@ -579,7 +702,7 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
           <div className="ch-engagement-list" style={{ marginBottom: 'var(--space-5)' }}>
             {(myGroupsQuery.data ?? []).length === 0 && !myGroupsQuery.isLoading && (
               <p className="ch-member-list__label">
-                You have not joined any groups yet. Create one below or discover groups under Recommended.
+                You have not joined any groups yet. Create one below or discover groups under the Groups tab.
               </p>
             )}
             {(myGroupsQuery.data ?? []).map((g) => (
@@ -643,8 +766,8 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
                 Create a community group
               </h2>
               <p className="ch-hub-section__sub">
-                Start a space for your community. You will be added as the first member; others can join from
-                Recommended or via your invite link.
+                Start a space for your community. You will be added as the first member; others can join from the
+                Groups tab or via your invite link.
               </p>
             </div>
             <div className="ch-create-group">
@@ -745,7 +868,7 @@ const CommunityHubPage = ({ variant = 'patient' }: CommunityHubPageProps) => {
                     After creating, use <strong>Copy invite link</strong> on your group card so friends can join in
                     one tap.
                   </li>
-                  <li>Everyone can discover open groups under the <strong>Recommended</strong> tab.</li>
+                  <li>Everyone can discover open groups under the <strong>Groups</strong> tab.</li>
                 </ul>
               </aside>
             </div>

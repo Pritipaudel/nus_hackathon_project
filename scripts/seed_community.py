@@ -170,6 +170,206 @@ SEED_GROUPS: list[SeedGroup] = [
         ),
     ),
 
+    # ── Nepal identity (ethnicity / religion / city) — extended catalogue ────
+
+    SeedGroup(
+        name="Bhote Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Bhote",
+        description="Community for the Bhote people from northern Nepal",
+    ),
+    SeedGroup(
+        name="Rai Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Rai",
+        description="Community for the Rai ethnic group in eastern Nepal",
+    ),
+    SeedGroup(
+        name="Limbu Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Limbu",
+        description="Community for the Limbu people of eastern Nepal",
+    ),
+    SeedGroup(
+        name="Sherpa Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Sherpa",
+        description=(
+            "Community for Sherpa ethnic group members from Solukhumbu and surrounding areas"
+        ),
+    ),
+    SeedGroup(
+        name="Gurung Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Gurung",
+        description="Community for Gurung people from central Nepal",
+    ),
+    SeedGroup(
+        name="Magar Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Magar",
+        description="Community for the Magar ethnic group of western and central Nepal",
+    ),
+    SeedGroup(
+        name="Tamang Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Tamang",
+        description="Community for celebrating Tamang cultural traditions in central Nepal",
+    ),
+    SeedGroup(
+        name="Thakali Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Thakali",
+        description="Community of Thakali people from Mustang region",
+    ),
+    SeedGroup(
+        name="Sunuwar Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Sunuwar",
+        description="Community for the Sunuwar ethnic group of eastern Nepal",
+    ),
+    SeedGroup(
+        name="Yolmo Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Yolmo",
+        description="Community for Yolmo (Helambu Sherpa) people from northern Nepal",
+    ),
+    SeedGroup(
+        name="Newar Community",
+        group_type=CommunityGroupType.ETHNICITY_CASTE,
+        value="Newar",
+        description="Community celebrating Newar cultural heritage",
+    ),
+    SeedGroup(
+        name="Hindu Community",
+        group_type=CommunityGroupType.RELIGION,
+        value="Hindu",
+        description="Community for followers of Hinduism",
+    ),
+    SeedGroup(
+        name="Buddhist Community",
+        group_type=CommunityGroupType.RELIGION,
+        value="Buddhism",
+        description="Community for followers of Buddhism",
+    ),
+    SeedGroup(
+        name="Christian Community",
+        group_type=CommunityGroupType.RELIGION,
+        value="Christianity",
+        description="Community for followers of Christianity",
+    ),
+    SeedGroup(
+        name="Women Support Group",
+        group_type=CommunityGroupType.GENDER,
+        value="Female",
+        description="Community for women to discuss empowerment and social issues",
+    ),
+    SeedGroup(
+        name="Men Support Group",
+        group_type=CommunityGroupType.GENDER,
+        value="Male",
+        description="Community for men to discuss health, career, and social issues",
+    ),
+    SeedGroup(
+        name="Kathmandu Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Kathmandu",
+        description="Community for people living in Kathmandu",
+    ),
+    SeedGroup(
+        name="Pokhara Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Pokhara",
+        description="Community for people living in Pokhara",
+    ),
+
+    # ── City & province residents (CUSTOM) — additional discoverable groups ─
+
+    SeedGroup(
+        name="Biratnagar Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Biratnagar",
+        description="Community for people living in Biratnagar",
+    ),
+    SeedGroup(
+        name="Dharan Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Dharan",
+        description="Community for people living in Dharan",
+    ),
+    SeedGroup(
+        name="Nepalgunj Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Nepalgunj",
+        description="Community for people living in Nepalgunj",
+    ),
+    SeedGroup(
+        name="Janakpur Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Janakpur",
+        description="Community for people living in Janakpur",
+    ),
+    SeedGroup(
+        name="Hetauda Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Hetauda",
+        description="Community for people living in Hetauda",
+    ),
+    SeedGroup(
+        name="Itahari Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Itahari",
+        description="Community for people living in Itahari",
+    ),
+    SeedGroup(
+        name="Dhangadhi Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Dhangadhi",
+        description="Community for people living in Dhangadhi",
+    ),
+    SeedGroup(
+        name="Birgunj Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Birgunj",
+        description="Community for people living in Birgunj",
+    ),
+    SeedGroup(
+        name="Sudurpashchim Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Sudurpashchim",
+        description="Community for people living in Sudurpashchim province",
+    ),
+    SeedGroup(
+        name="Province 1 Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Province 1",
+        description="Community for people living in Koshi Province",
+    ),
+    SeedGroup(
+        name="Madhesh Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Madhesh",
+        description="Community for people living in Madhesh Province",
+    ),
+    SeedGroup(
+        name="Bagmati Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Bagmati",
+        description="Community for people living in Bagmati Province",
+    ),
+    SeedGroup(
+        name="Lumbini Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Lumbini",
+        description="Community for people living in Lumbini Province",
+    ),
+    SeedGroup(
+        name="Gandaki Residents",
+        group_type=CommunityGroupType.CUSTOM,
+        value="Gandaki",
+        description="Community for people living in Gandaki Province",
+    ),
+
     # ── Gender ───────────────────────────────────────────────────────────────
 
     SeedGroup(

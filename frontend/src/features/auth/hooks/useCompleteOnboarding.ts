@@ -16,7 +16,7 @@ export const useCompleteOnboarding = () => {
       }
       // Use replace so the store is fully written to localStorage before navigation
       setTimeout(() => {
-        window.location.replace('/dashboard');
+        window.location.replace('/dashboard?fromOnboarding=1');
       }, 0);
     },
   });

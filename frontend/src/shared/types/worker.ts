@@ -1,6 +1,5 @@
 export type WorkerDashboardSection =
   | 'community'
-  | 'chat'
   | 'overview'
   | 'patients'
   | 'meetings'

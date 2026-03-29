@@ -14,7 +14,8 @@ from backend.core.database import SessionLocal
 
 # Ensure model registry includes relationship targets used by ICBT models.
 import backend.models.community  # noqa: F401
-from backend.models.icbt import ICBTProgram
+from backend.models.community import CommunityGroup
+from backend.models.icbt import ICBTProgram, ICBTProgramCommunity
 
 
 @dataclass(frozen=True)
@@ -193,6 +194,76 @@ SEED_PROGRAMS: list[SeedProgram] = [
     ),
 ]
 
+# Values must match `community_groups.value` after `scripts/seed_community.py` (extended Nepal groups).
+_ICBT_RECOMMENDATION_VALUES: tuple[str, ...] = (
+    "Bhote",
+    "Rai",
+    "Limbu",
+    "Sherpa",
+    "Gurung",
+    "Magar",
+    "Tamang",
+    "Thakali",
+    "Sunuwar",
+    "Yolmo",
+    "Newar",
+    "Hindu",
+    "Buddhism",
+    "Christianity",
+    "Female",
+    "Male",
+    "Kathmandu",
+    "Pokhara",
+    "Biratnagar",
+    "Dharan",
+    "Bagmati",
+    "Gandaki",
+    "Lumbini",
+    "Madhesh",
+    "Province 1",
+    "Nepalgunj",
+    "Janakpur",
+)
+
+
+def _default_recommended_group_values(index: int) -> tuple[str, ...]:
+    v = _ICBT_RECOMMENDATION_VALUES
+    n = len(v)
+    return (v[index % n], v[(index + 7) % n])
+
+
+def _recommended_group_values_for_program(title: str, index: int) -> tuple[str, ...]:
+    if title == "DigiTherapy Nepal CBT":
+        return ("Tamang", "Kathmandu", "Newar")
+    return _default_recommended_group_values(index)
+
+
+def _ensure_program_community_links(
+    db: Session, program_id, group_values: tuple[str, ...]
+) -> int:
+    added = 0
+    for gv in group_values:
+        group = db.query(CommunityGroup).filter(CommunityGroup.value == gv).first()
+        if group is None:
+            continue
+        exists = (
+            db.query(ICBTProgramCommunity)
+            .filter(
+                ICBTProgramCommunity.program_id == program_id,
+                ICBTProgramCommunity.community_group_id == group.id,
+            )
+            .first()
+        )
+        if exists is None:
+            db.add(
+                ICBTProgramCommunity(
+                    program_id=program_id,
+                    community_group_id=group.id,
+                )
+            )
+            added += 1
+    return added
+
 
 def _normalize_url(url: str) -> str:
     return url.strip().lower().rstrip("/")
@@ -202,13 +273,14 @@ def _build_description(item: SeedProgram) -> str:
     return f"{item.description} Category: {item.category}."
 
 
-def seed_icbt_programs(db: Session) -> tuple[int, int, int]:
+def seed_icbt_programs(db: Session) -> tuple[int, int, int, int]:
     created = 0
     updated = 0
     skipped_duplicates = 0
+    community_links_added = 0
 
     seen_urls: set[str] = set()
-    for item in SEED_PROGRAMS:
+    for idx, item in enumerate(SEED_PROGRAMS):
         normalized_url = _normalize_url(item.url)
         if normalized_url in seen_urls:
             skipped_duplicates += 1
@@ -223,37 +295,41 @@ def seed_icbt_programs(db: Session) -> tuple[int, int, int]:
         )
 
         if existing is None:
-            db.add(
-                ICBTProgram(
-                    title=item.title,
-                    description=_build_description(item),
-                    difficulty_level=item.difficulty_level,
-                    duration_days=item.duration_days,
-                    url=item.url,
-                )
+            prog = ICBTProgram(
+                title=item.title,
+                description=_build_description(item),
+                difficulty_level=item.difficulty_level,
+                duration_days=item.duration_days,
+                url=item.url,
             )
+            db.add(prog)
+            db.flush()
             created += 1
-            continue
+        else:
+            existing.title = item.title
+            existing.description = _build_description(item)
+            existing.difficulty_level = item.difficulty_level
+            existing.duration_days = item.duration_days
+            prog = existing
+            updated += 1
 
-        existing.title = item.title
-        existing.description = _build_description(item)
-        existing.difficulty_level = item.difficulty_level
-        existing.duration_days = item.duration_days
-        updated += 1
+        rec = _recommended_group_values_for_program(item.title, idx)
+        community_links_added += _ensure_program_community_links(db, prog.id, rec)
 
     db.commit()
-    return created, updated, skipped_duplicates
+    return created, updated, skipped_duplicates, community_links_added
 
 
 def main() -> None:
     db = SessionLocal()
     try:
-        created, updated, skipped_duplicates = seed_icbt_programs(db)
+        created, updated, skipped_duplicates, links = seed_icbt_programs(db)
         print(
             "ICBT seed completed.",
             f"created={created}",
             f"updated={updated}",
             f"skipped_duplicates_in_seed={skipped_duplicates}",
+            f"community_links_added={links}",
         )
     finally:
         db.close()

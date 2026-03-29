@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { useAuthStore } from '@shared/stores/authStore';
+import { env } from '@shared/lib/env';
 import { useMe } from '@features/auth/hooks/useMe';
 import { useMyDashboard } from '@features/dashboard/hooks/useDashboard';
 import IcbtPage from '@features/icbt/pages/IcbtPage';
@@ -12,10 +14,11 @@ import CommunityHubPage from '@features/communityHub/pages/CommunityHubPage';
 type Section = 'home' | 'programs' | 'community' | 'community-hub' | 'workers' | 'training';
 
 /** Home (stats overview) is not in the nav — only opened via the profile block. */
+/** Suggested journey: My Community (chat / sessions) → iCBT → Community Feed → Health Workers → Training */
 const NAV_ITEMS: { id: Section; label: string }[] = [
-  { id: 'community', label: 'Community Feed' },
   { id: 'community-hub', label: 'My Community' },
   { id: 'programs', label: 'iCBT Programmes' },
+  { id: 'community', label: 'Community Feed' },
   { id: 'workers', label: 'Health Workers' },
   { id: 'training', label: 'Training' },
 ];
@@ -67,8 +70,22 @@ const StatIcon = ({ type }: { type: 'progress' | 'programs' | 'meetings' | 'cert
 
 const DashboardPage = () => {
   const { user, clearAuth } = useAuthStore();
-  /** Default: Community Feed after load/refresh. Profile → Home overview. */
-  const [section, setSection] = useState<Section>('community');
+  const [searchParams, setSearchParams] = useSearchParams();
+  /** Default: My Community (chat & hub). Profile → Home overview. */
+  const [section, setSection] = useState<Section>('community-hub');
+
+  useEffect(() => {
+    if (searchParams.get('fromOnboarding') !== '1') return;
+    setSection('community-hub');
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('fromOnboarding');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
 
   useMe();
 
@@ -92,7 +109,7 @@ const DashboardPage = () => {
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
           </div>
-          <span>MindBridge</span>
+          <span>{env.appName}</span>
         </div>
 
         <nav className="ds-nav">
@@ -372,6 +389,11 @@ const DashboardPage = () => {
                     {(
                       [
                         {
+                          label: 'My Community',
+                          sub: 'Message your care team after a session, programmes & groups',
+                          section: 'community-hub' as Section,
+                        },
+                        {
                           label: 'Continue programme',
                           sub: dash?.active_programmes[0]?.title
                             ? `${dash.active_programmes[0].title} — ${dash.active_programmes[0].progress_percent}%`
@@ -383,7 +405,6 @@ const DashboardPage = () => {
                           sub: 'Posts, anonymous problems & trending support',
                           section: 'community' as Section,
                         },
-                        { label: 'My Community', sub: 'Chat, recommended programmes & engagement', section: 'community-hub' as Section },
                         { label: 'Find a health worker', sub: 'Book a session with a counsellor', section: 'workers' as Section },
                         { label: 'Explore training', sub: 'Earn a new certification', section: 'training' as Section },
                       ] as { label: string; sub: string; section: Section }[]
@@ -407,7 +428,9 @@ const DashboardPage = () => {
 
         {section === 'programs' && <IcbtPage />}
         {section === 'community' && <CommunityPage />}
-        {section === 'community-hub' && <CommunityHubPage />}
+        {section === 'community-hub' && (
+          <CommunityHubPage onNavigateToBookSession={() => setSection('workers')} />
+        )}
         {section === 'workers' && <HealthWorkersPage />}
         {section === 'training' && <TrainingPage />}
       </main>
