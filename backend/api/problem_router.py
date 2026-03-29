@@ -18,9 +18,9 @@ def create_new_problem(
     current_user: User = Depends(get_current_user)
 ):
     problem = create_problem(db=db, request=request, user_id=current_user.id)
-    response_dict = problem.__dict__
-    response_dict["has_upvoted"] = True
-    return ProblemResponse(**response_dict)
+    response = ProblemResponse.model_validate(problem, from_attributes=True)
+    response.has_upvoted = True
+    return response
 
 @problem_router.get("/list-with-count", response_model=List[CategoryGroupResponse])
 def get_problems(

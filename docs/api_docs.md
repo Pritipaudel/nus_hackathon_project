@@ -626,7 +626,7 @@ Get trending community issues.
 
 ## 1. Create Problem
 
-**POST** `problem/create`
+**POST** `/problem/create`
 
 
 ### Request Body
@@ -662,7 +662,7 @@ Get trending community issues.
 
 ## 2. List Problems (With Trending)
 
-**GET** `problem/list-with-count`
+**GET** `/problem/list-with-count`
 
 
 ### Response: `200 OK`
@@ -707,7 +707,7 @@ Get trending community issues.
 
 ## 3. Toggle Upvote
 
-**POST** `problem/upvote/{id}`
+**POST** `/problem/upvote/{id}`
 
 An anonymous toggle to safely upvote or remove an upvote for a specific problem. If the user has already upvoted, calling this again will "unlike" it.
 
@@ -725,8 +725,6 @@ An anonymous toggle to safely upvote or remove an upvote for a specific problem.
 ```
 
 - `status` can be either `"upvoted"` or `"removed"`.
-
----
 
 ---
 
