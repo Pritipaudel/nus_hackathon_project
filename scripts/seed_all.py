@@ -1,32 +1,33 @@
-"""Run all seed scripts in the correct dependency order.
+"""Single entry point: script seeds + backend/seed demo data.
 
 Run from project root:
-    uv run python scripts/seed_all.py
+    PYTHONPATH=. uv run python scripts/seed_all.py
 
-Order:
-  1. seed_icbt_programs      — no dependencies
-  2. seed_users              — no dependencies
-  3. seed_community          — depends on users
-  4. seed_health_workers     — depends on community groups
-  5. seed_training           — depends on users
-  6. seed_meetings           — depends on users + health workers
-  7. seed_anonymous_problems — depends on community groups
+Default includes hackathon demo (worker@demo.com, patients, Dr Priya groups, Nepali DMs)
+after the Nepal script chain, then merges hub demo anonymous problems (so group links resolve).
+
+Skip hackathon demo (Nepal scripts + hub problems only):
+    PYTHONPATH=. uv run python scripts/seed_all.py --no-hackathon-demo
+
+Pipeline:
+  1–7. scripts: ICBT, users, community, health workers, training, meetings, anonymous problems
+  8. (unless --no-hackathon-demo) backend.seed.demo_data: run_demo_seed + ensure_demo_direct_messages
+  9. backend.seed.community_problems_demo: merge_demo_community_problems (idempotent by title)
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
-# Ensure the project root is on sys.path so that `backend` and `scripts`
-# are both importable regardless of how this file is executed.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.core.database import SessionLocal  # noqa: E402
+from backend.seed.community_problems_demo import merge_demo_community_problems  # noqa: E402
 
-# Import each seed function directly (avoids scripts-as-package issues)
 from scripts.seed_icbt_programs import seed_icbt_programs  # noqa: E402
 from scripts.seed_users import seed_users  # noqa: E402
 from scripts.seed_community import seed_community  # noqa: E402
@@ -36,46 +37,86 @@ from scripts.seed_meetings import seed_meetings  # noqa: E402
 from scripts.seed_anonymous_problems import seed_anonymous_problems  # noqa: E402
 
 
-def main() -> None:
+def run_script_seeds(db) -> None:
+    print("\n=== [1/7] Seeding ICBT programs (scripts) ===")
+    created, updated, skipped = seed_icbt_programs(db)
+    print(f"  created={created}  updated={updated}  skipped={skipped}")
+
+    print("\n=== [2/7] Seeding users (scripts) ===")
+    created, skipped = seed_users(db)
+    print(f"  created={created}  skipped={skipped}")
+
+    print("\n=== [3/7] Seeding community groups & posts (scripts) ===")
+    gc, gs, pc, ps = seed_community(db)
+    print(f"  groups: created={gc}  skipped={gs}")
+    print(f"  posts:  created={pc}  skipped={ps}")
+
+    print("\n=== [4/7] Seeding health workers (scripts) ===")
+    created, skipped = seed_health_workers(db)
+    print(f"  created={created}  skipped={skipped}")
+
+    print("\n=== [5/7] Seeding training programs & enrollments (scripts) ===")
+    pc, ps, ec, es = seed_training(db)
+    print(f"  programs:    created={pc}  skipped={ps}")
+    print(f"  enrollments: created={ec}  skipped={es}")
+
+    print("\n=== [6/7] Seeding meetings (scripts) ===")
+    created, skipped = seed_meetings(db)
+    print(f"  created={created}  skipped={skipped}")
+
+    print("\n=== [7/7] Seeding anonymous problems — Nepal set (scripts) ===")
+    created, skipped = seed_anonymous_problems(db)
+    print(f"  created={created}  skipped={skipped}")
+
+
+def main(*, hackathon_demo: bool = True) -> None:
     db = SessionLocal()
     try:
-        print("\n=== [1/7] Seeding ICBT programs ===")
-        created, updated, skipped = seed_icbt_programs(db)
-        print(f"  created={created}  updated={updated}  skipped={skipped}")
-
-        print("\n=== [2/7] Seeding users ===")
-        created, skipped = seed_users(db)
-        print(f"  created={created}  skipped={skipped}")
-
-        print("\n=== [3/7] Seeding community groups & posts ===")
-        gc, gs, pc, ps = seed_community(db)
-        print(f"  groups: created={gc}  skipped={gs}")
-        print(f"  posts:  created={pc}  skipped={ps}")
-
-        print("\n=== [4/7] Seeding health workers ===")
-        created, skipped = seed_health_workers(db)
-        print(f"  created={created}  skipped={skipped}")
-
-        print("\n=== [5/7] Seeding training programs & enrollments ===")
-        pc, ps, ec, es = seed_training(db)
-        print(f"  programs:    created={pc}  skipped={ps}")
-        print(f"  enrollments: created={ec}  skipped={es}")
-
-        print("\n=== [6/7] Seeding meetings ===")
-        created, skipped = seed_meetings(db)
-        print(f"  created={created}  skipped={skipped}")
-
-        print("\n=== [7/7] Seeding anonymous problems ===")
-        created, skipped = seed_anonymous_problems(db)
-        print(f"  created={created}  skipped={skipped}")
-
-        print("\n All seeds completed successfully.")
+        run_script_seeds(db)
+        print("\n Script seeds (1–7) completed.")
     except Exception as exc:
         print(f"\n Seeding failed: {exc}")
         raise
     finally:
         db.close()
 
+    if hackathon_demo:
+        print("\n=== [8/9] Hackathon demo (backend.seed.demo_data) ===")
+        print("  worker@demo.com, 8 patients, meetings, extra groups/iCBT, catalogue workers.")
+        from backend.seed.demo_data import ensure_demo_direct_messages, run_demo_seed_if_needed
+
+        ran = run_demo_seed_if_needed()
+        if ran:
+            print("  Inserted demo worker, patients, and related rows.")
+        else:
+            print("  Skipped (worker@demo.com already present).")
+        ensure_demo_direct_messages()
+        print("  Direct-message demo thread checked.")
+
+    print("\n=== [9/9] Hub demo anonymous problems (backend.seed.community_problems_demo) ===")
+    print("  Merges DEMO_PROBLEMS by title (links to groups when values exist).")
+    db_merge = SessionLocal()
+    try:
+        c, s = merge_demo_community_problems(db_merge)
+        print(f"  created={c}  skipped={s}")
+    finally:
+        db_merge.close()
+
+    print("\n All seeds completed.")
+
+
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Load script seeds plus backend/seed hub + optional hackathon demo.",
+    )
+    p.add_argument(
+        "--no-hackathon-demo",
+        action="store_true",
+        help="Omit worker@demo.com bundle; still merges hub demo problems after scripts.",
+    )
+    return p.parse_args()
+
 
 if __name__ == "__main__":
-    main()
+    args = _parse_args()
+    main(hackathon_demo=not args.no_hackathon_demo)

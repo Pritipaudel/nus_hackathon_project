@@ -10,8 +10,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import func
 from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.orm import Session
 
 from backend.core.database import SessionLocal
 from backend.models.community import CommunityGroup
@@ -88,34 +88,59 @@ DEMO_PROBLEMS: list[dict] = [
 ]
 
 
+def merge_demo_community_problems(db: Session) -> tuple[int, int]:
+    """
+    Insert hub demo problems from DEMO_PROBLEMS when no row exists with the same title.
+    Idempotent; safe after scripts/seed_anonymous_problems (Nepal problems).
+    Links to community_group by value when present (e.g. after run_demo_seed groups exist).
+    """
+    groups = db.query(CommunityGroup).all()
+    by_value = {g.value: g.id for g in groups}
+    now = datetime.now(timezone.utc)
+    created = 0
+    skipped = 0
+
+    for row in DEMO_PROBLEMS:
+        existing = (
+            db.query(AnonymousProblem)
+            .filter(AnonymousProblem.title == row["title"])
+            .first()
+        )
+        if existing is not None:
+            skipped += 1
+            continue
+
+        gv = row.get("group_value")
+        gid = by_value.get(gv) if gv else None
+
+        db.add(
+            AnonymousProblem(
+                title=row["title"],
+                description=row.get("description"),
+                category=row["category"],
+                severity_level=row.get("severity_level") or 1,
+                community_group_id=gid,
+                upvote_count=int(row["upvote_count"]),
+                created_at=now,
+            )
+        )
+        created += 1
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return created, skipped
+
+
 def ensure_demo_community_problems() -> None:
-    """Insert demo problems once when the table has no rows. Safe on every startup."""
+    """On app startup: merge hub demo problems (skips titles already in DB)."""
     db = SessionLocal()
     try:
-        count = db.query(func.count(AnonymousProblem.id)).scalar() or 0
-        if count > 0:
-            return
-
-        groups = db.query(CommunityGroup).all()
-        by_value = {g.value: g.id for g in groups}
-
-        now = datetime.now(timezone.utc)
-        for row in DEMO_PROBLEMS:
-            gv = row.get("group_value")
-            gid = by_value.get(gv) if gv else None
-            db.add(
-                AnonymousProblem(
-                    title=row["title"],
-                    description=row.get("description"),
-                    category=row["category"],
-                    severity_level=row.get("severity_level") or 1,
-                    community_group_id=gid,
-                    upvote_count=int(row["upvote_count"]),
-                    created_at=now,
-                )
-            )
-        db.commit()
-        logger.info("Seeded %s demo community problems.", len(DEMO_PROBLEMS))
+        ins, sk = merge_demo_community_problems(db)
+        if ins:
+            logger.info("Merged %s demo community problems (%s already present).", ins, sk)
     except (ProgrammingError, OperationalError) as exc:
         db.rollback()
         logger.warning("Skipping demo community problems (database): %s", exc)
