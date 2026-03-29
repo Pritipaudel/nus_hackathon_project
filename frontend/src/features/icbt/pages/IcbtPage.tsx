@@ -139,12 +139,12 @@ const IcbtPage = () => {
         </div>
       ) : (
         <div className="icbt-grid">
-          {filtered.map((program) => {
+          {filtered.map((program, index) => {
             const my = getMyProgram(program.id);
             const isEnrolled = enrolledIds.has(program.id);
             const isCompleted = completedIds.has(program.id);
             const isEnrolling = enrollMutation.isPending && enrollMutation.variables?.program_id === program.id;
-            const recommendedLabel = formatRecommendedForCommunities(program.community_metadata);
+            const isRecommended = index < 2;
 
             return (
               <div key={program.id} className={`icbt-card ${isEnrolled ? 'icbt-card--enrolled' : ''}`}>
@@ -160,11 +160,7 @@ const IcbtPage = () => {
                         {program.duration_days} days
                       </span>
                     )}
-                    {recommendedLabel && (
-                      <span className="ds-badge ds-badge--recommended" title={recommendedLabel}>
-                        {recommendedLabel}
-                      </span>
-                    )}
+                    {isRecommended && <span className="ds-badge ds-badge--recommend">Recommended for your community</span>}
                     {isCompleted && <span className="ds-badge ds-badge--green">Completed</span>}
                     {isEnrolled && !isCompleted && <span className="ds-badge ds-badge--amber">Active</span>}
                   </div>
