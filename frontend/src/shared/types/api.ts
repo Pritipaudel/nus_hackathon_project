@@ -52,6 +52,12 @@ export interface CommunityGroup {
   description: string | null;
   created_by_user_id: string | null;
   created_at: string;
+  member_count?: number;
+}
+
+export interface MyCommunityGroup extends CommunityGroup {
+  is_creator: boolean;
+  joined_at: string;
 }
 
 export interface CommunityPost {

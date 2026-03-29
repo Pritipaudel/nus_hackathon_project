@@ -5,16 +5,25 @@ import type { SignupRequest } from '@shared/types';
 
 import { authApi } from '../api/authApi';
 
-export const useSignup = () => {
+type UseSignupOptions = {
+  /** Preserved through login (e.g. return to /join-group?token=… after signup + sign-in). */
+  nextAfterLogin?: string | null;
+};
+
+export const useSignup = (options?: UseSignupOptions) => {
   const navigate = useNavigate();
 
   return useMutation({
     mutationFn: (body: SignupRequest) => authApi.signup(body),
     onSuccess: (_, variables) => {
-      navigate(
-        `/login?registered=true&email=${encodeURIComponent(variables.email)}`,
-        { replace: true },
-      );
+      const params = new URLSearchParams({
+        registered: 'true',
+        email: variables.email,
+      });
+      if (options?.nextAfterLogin) {
+        params.set('next', options.nextAfterLogin);
+      }
+      navigate(`/login?${params.toString()}`, { replace: true });
     },
   });
 };

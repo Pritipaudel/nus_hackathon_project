@@ -8,6 +8,7 @@ import { ProtectedRoute } from './ProtectedRoute';
 
 const LoginPage = lazy(() => import('@features/auth/pages/LoginPage'));
 const SignupPage = lazy(() => import('@features/auth/pages/SignupPage'));
+const JoinGroupPage = lazy(() => import('@features/community/pages/JoinGroupPage'));
 const DashboardPage = lazy(() => import('@features/dashboard/pages/DashboardPage'));
 const OnboardingPage = lazy(() => import('@features/onboarding/pages/OnboardingPage'));
 const WorkerDashboardPage = lazy(() => import('@features/workerDashboard/pages/WorkerDashboardPage'));
@@ -47,6 +48,16 @@ export const router = createBrowserRouter([
       <ErrorBoundary>
         <Suspense fallback={<Loader />}>
           <SignupPage />
+        </Suspense>
+      </ErrorBoundary>
+    ),
+  },
+  {
+    path: '/join-group',
+    element: (
+      <ErrorBoundary>
+        <Suspense fallback={<Loader />}>
+          <JoinGroupPage />
         </Suspense>
       </ErrorBoundary>
     ),

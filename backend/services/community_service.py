@@ -1,11 +1,15 @@
 import io
 import json
 import mimetypes
+import secrets
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import HTTPException, UploadFile, status
 from minio.error import S3Error
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.core.minio_client import MINIO_ENDPOINT, minio_client
@@ -13,6 +17,12 @@ from backend.models.community import CommunityPost, MediaType
 from backend.models.user import User
 from backend.repository.community_repository import CommunityRepository
 from backend.repository.user_repository import UserRepository
+from backend.schema.community import (
+    CommunityGroupType,
+    CommunityInviteCreatedResponse,
+    CommunityInvitePreviewResponse,
+    MyCommunityGroupResponse,
+)
 
 COMMUNITY_MEDIA_BUCKET = "community-media"
 
@@ -176,13 +186,221 @@ def create_community_group(
             status_code=status.HTTP_409_CONFLICT,
             detail="Community group with this type and value already exists",
         )
-    return repo.create_group(
+    group = repo.create_group(
         name=name.strip(),
         group_type=group_type,
         value=normalized_value,
         description=description.strip() if description else None,
         created_by_user_id=current_user.id,
     )
+    if repo.get_group_membership(current_user.id, group.id) is None:
+        repo.add_group_membership(current_user.id, group.id)
+    return group
+
+
+def join_community_group(
+    db: Session,
+    current_user: User,
+    group_id: uuid.UUID,
+):
+    repo = CommunityRepository(db)
+    group = repo.get_group(group_id)
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community group not found",
+        )
+    existing = repo.get_group_membership(current_user.id, group_id)
+    if existing is None:
+        repo.add_group_membership(current_user.id, group_id)
+    member_count = repo.count_group_members(group_id)
+    is_creator = group.created_by_user_id == current_user.id
+    mship = repo.get_group_membership(current_user.id, group_id)
+    assert mship is not None
+    return MyCommunityGroupResponse(
+        id=group.id,
+        name=group.name,
+        group_type=CommunityGroupType(group.group_type),
+        value=group.value,
+        description=group.description,
+        created_by_user_id=group.created_by_user_id,
+        created_at=group.created_at,
+        member_count=member_count,
+        is_creator=is_creator,
+        joined_at=mship.joined_at,
+    )
+
+
+def leave_community_group(
+    db: Session,
+    current_user: User,
+    group_id: uuid.UUID,
+) -> None:
+    repo = CommunityRepository(db)
+    if repo.get_group(group_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community group not found",
+        )
+    if not repo.remove_group_membership(current_user.id, group_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="You are not a member of this group",
+        )
+
+
+def list_my_community_groups(
+    db: Session,
+    current_user: User,
+):
+    repo = CommunityRepository(db)
+    rows = repo.list_my_community_groups(current_user.id)
+    if not rows:
+        return []
+    group_ids = [g.id for g, _ in rows]
+    count_map = repo.count_members_for_groups(group_ids)
+
+    out: list[MyCommunityGroupResponse] = []
+    for group, mship in rows:
+        mc = count_map.get(group.id, 0)
+        out.append(
+            MyCommunityGroupResponse(
+                id=group.id,
+                name=group.name,
+                group_type=CommunityGroupType(group.group_type),
+                value=group.value,
+                description=group.description,
+                created_by_user_id=group.created_by_user_id,
+                created_at=group.created_at,
+                member_count=mc,
+                is_creator=group.created_by_user_id == current_user.id,
+                joined_at=mship.joined_at,
+            )
+        )
+    return out
+
+
+def create_community_group_invite(
+    db: Session,
+    current_user: User,
+    group_id: uuid.UUID,
+    expires_in_days: int,
+) -> CommunityInviteCreatedResponse:
+    repo = CommunityRepository(db)
+    group = repo.get_group(group_id)
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community group not found",
+        )
+    if repo.get_group_membership(current_user.id, group_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must be a member of this group to create an invite link",
+        )
+
+    expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
+    last_error: Exception | None = None
+    for _ in range(8):
+        token = secrets.token_urlsafe(32)
+        try:
+            repo.create_group_invite_record(
+                community_group_id=group_id,
+                invited_by_user_id=current_user.id,
+                token=token,
+                expires_at=expires_at,
+            )
+            invite_path = (
+                "/join-group?"
+                + urlencode({"token": token, "user_id": str(current_user.id)})
+            )
+            return CommunityInviteCreatedResponse(
+                token=token,
+                group_id=group_id,
+                invited_by_user_id=current_user.id,
+                expires_at=expires_at,
+                invite_path=invite_path,
+            )
+        except IntegrityError as exc:
+            last_error = exc
+            db.rollback()
+            continue
+
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Could not generate invite; try again",
+    ) from last_error
+
+
+def preview_community_invite(db: Session, token: str) -> CommunityInvitePreviewResponse:
+    from backend.repository.user_repository import UserRepository
+
+    raw = token.strip()
+    if not raw:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid invite",
+        )
+    repo = CommunityRepository(db)
+    inv = repo.get_invite_by_token(raw)
+    if inv is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired invite",
+        )
+    if datetime.now(timezone.utc) > inv.expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This invite has expired",
+        )
+    group = inv.community_group
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community group not found",
+        )
+
+    inviter_display: str | None = None
+    if inv.invited_by_user_id is not None:
+        u = UserRepository(db).get_by_id(str(inv.invited_by_user_id))
+        if u is not None:
+            inviter_display = f"{u.first_name} {u.last_name}".strip() or (
+                u.anonymous_username or u.email
+            )
+
+    return CommunityInvitePreviewResponse(
+        group_id=group.id,
+        group_name=group.name,
+        expires_at=inv.expires_at,
+        invited_by_user_id=inv.invited_by_user_id,
+        inviter_display_name=inviter_display,
+    )
+
+
+def accept_community_invite(
+    db: Session,
+    current_user: User,
+    token: str,
+) -> MyCommunityGroupResponse:
+    raw = token.strip()
+    if not raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="token is required",
+        )
+    repo = CommunityRepository(db)
+    inv = repo.get_invite_by_token(raw)
+    if inv is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired invite",
+        )
+    if datetime.now(timezone.utc) > inv.expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="This invite has expired",
+        )
+    return join_community_group(db, current_user, inv.community_group_id)
 
 
 def delete_post(

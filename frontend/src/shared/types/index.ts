@@ -5,6 +5,7 @@ export type {
   MyIcbtProgram,
   PostMedia,
   CommunityGroup,
+  MyCommunityGroup,
   CommunityPost,
   TrendingPost,
   HealthWorker,

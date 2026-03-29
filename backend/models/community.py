@@ -61,12 +61,78 @@ class CommunityGroup(Base):
     )
 
     posts = relationship("CommunityPost", back_populates="community_group")
+    memberships = relationship(
+        "CommunityGroupMembership",
+        back_populates="community_group",
+        cascade="all, delete-orphan",
+    )
+    invites = relationship(
+        "CommunityGroupInvite",
+        back_populates="community_group",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         UniqueConstraint("group_type", "value", name="uq_community_groups_type_value"),
         Index("idx_community_groups_type", "group_type"),
         Index("idx_community_groups_value", "value"),
     )
+
+
+class CommunityGroupMembership(Base):
+    __tablename__ = "community_group_memberships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    community_group_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("community_groups.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    joined_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    community_group = relationship("CommunityGroup", back_populates="memberships")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "community_group_id", name="uq_community_group_member"
+        ),
+        Index("idx_cg_memberships_user", "user_id"),
+        Index("idx_cg_memberships_group", "community_group_id"),
+    )
+
+
+class CommunityGroupInvite(Base):
+    __tablename__ = "community_group_invites"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    community_group_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("community_groups.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    invited_by_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    token = Column(String(80), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    community_group = relationship("CommunityGroup", back_populates="invites")
+
+    __table_args__ = (Index("idx_community_group_invites_group", "community_group_id"),)
 
 
 class CommunityPost(Base):

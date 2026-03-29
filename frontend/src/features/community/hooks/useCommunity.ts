@@ -1,12 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useAuthStore } from '@shared/stores/authStore';
+
 import { communityApi } from '../api/communityApi';
-import type { GetPostsParams, ReactRequest, FlagRequest } from '../api/communityApi';
+import type {
+  CreateCommunityGroupBody,
+  GetPostsParams,
+  ReactRequest,
+  FlagRequest,
+} from '../api/communityApi';
 
 export const COMMUNITY_KEYS = {
   posts: (params?: GetPostsParams) => ['community', 'posts', params] as const,
   trending: ['community', 'trending'] as const,
   groups: ['community', 'groups'] as const,
+  myGroups: ['community', 'groups', 'mine'] as const,
   userPosts: (userId: string) => ['community', 'user-posts', userId] as const,
 };
 
@@ -27,6 +35,73 @@ export const useCommunityGroups = () =>
     queryKey: COMMUNITY_KEYS.groups,
     queryFn: communityApi.getGroups,
   });
+
+export const useMyCommunityGroups = () => {
+  const user = useAuthStore((s) => s.user);
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.myGroups,
+    queryFn: communityApi.getMyGroups,
+    enabled: Boolean(user),
+  });
+};
+
+export const useCreateCommunityGroup = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateCommunityGroupBody) => communityApi.createGroup(body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.groups });
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.myGroups });
+    },
+  });
+};
+
+export const useJoinCommunityGroup = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (groupId: string) => communityApi.joinGroup(groupId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.groups });
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.myGroups });
+    },
+  });
+};
+
+export const useLeaveCommunityGroup = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (groupId: string) => communityApi.leaveGroup(groupId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.groups });
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.myGroups });
+    },
+  });
+};
+
+export const useCommunityInvitePreview = (token: string) =>
+  useQuery({
+    queryKey: ['community', 'invite-preview', token] as const,
+    queryFn: () => communityApi.getInvitePreview(token),
+    enabled: token.length >= 8,
+  });
+
+export const useCreateGroupInvite = () =>
+  useMutation({
+    mutationFn: ({ groupId, expiresInDays }: { groupId: string; expiresInDays?: number }) =>
+      communityApi.createGroupInvite(groupId, expiresInDays),
+  });
+
+export const useAcceptGroupInvite = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (inviteToken: string) => communityApi.acceptGroupInvite(inviteToken),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.groups });
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.myGroups });
+      void queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    },
+  });
+};
 
 export const useCreatePost = () => {
   const queryClient = useQueryClient();
