@@ -285,7 +285,7 @@ const CommunityHubPage = ({
       <div className="ch-header">
         <div>
           <h1 className="ch-header__title">
-            {isHealthWorkerPortal ? 'Patient chat' : 'My Community'}
+            {isHealthWorkerPortal ? 'Chat' : 'My Community'}
           </h1>
           <p className="ch-header__sub">
             <span className="ch-online-dot" />

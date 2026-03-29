@@ -18,6 +18,7 @@ import { PATIENT_CATEGORY_COLOR } from '@shared/constants/workerDashboard';
 import { useWorkerDashboardStats } from '@features/dashboard/hooks/useDashboard';
 import { useCommunityPosts } from '@features/community/hooks/useCommunity';
 import CommunityPage from '@features/community/pages/CommunityPage';
+import CommunityHubPage from '@features/communityHub/pages/CommunityHubPage';
 
 const NAV: { id: WorkerDashboardSection; label: string; icon: React.ReactNode }[] = [
   {
@@ -31,6 +32,15 @@ const NAV: { id: WorkerDashboardSection; label: string; icon: React.ReactNode }[
         <line x1="3" y1="6" x2="3.01" y2="6" />
         <line x1="3" y1="12" x2="3.01" y2="12" />
         <line x1="3" y1="18" x2="3.01" y2="18" />
+      </svg>
+    ),
+  },
+  {
+    id: 'chat',
+    label: 'Chat',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
   },
@@ -1155,6 +1165,11 @@ const WorkerDashboardPage = () => {
         {section === 'patients' && <PatientsSection />}
         {section === 'meetings' && <MeetingsSection />}
         {section === 'certifications' && <CertificationsSection />}
+        {section === 'chat' && (
+          <div className="wd-patient-chat">
+            <CommunityHubPage variant="health_worker" />
+          </div>
+        )}
         {section === 'community' && (
           <div className="wd-section wd-section--wide">
             <div className="wd-section__header">
