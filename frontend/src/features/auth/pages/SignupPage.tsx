@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import type { SignupRequest, UserRole } from '@shared/types';
 
 import { useSignup } from '../hooks/useSignup';
+import { AuthBrandPanel } from '../components/AuthBrandPanel';
 
 const SignupPage = () => {
   const { mutate: signup, isPending, error } = useSignup();
@@ -32,10 +33,10 @@ const SignupPage = () => {
 
   return (
     <div className="auth-page">
-      <div className="auth-page__panel">
-        <div className="auth-page__panel-logo">N</div>
-        <h2 className="auth-page__panel-title">Join NUS Hackathon 2026</h2>
-      </div>
+      <AuthBrandPanel
+        title="MindBridge"
+        tagline={<>Create your account and begin your care journey</>}
+      />
 
       <div className="auth-page__form-side">
         <div className="auth-card">

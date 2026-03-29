@@ -17,15 +17,29 @@ import { PATIENT_CATEGORY_COLOR } from '@shared/constants/workerDashboard';
 import { useWorkerDashboardStats } from '@features/dashboard/hooks/useDashboard';
 import { useCommunityPosts } from '@features/community/hooks/useCommunity';
 import CommunityPage from '@features/community/pages/CommunityPage';
+import CommunityHubPage from '@features/communityHub/pages/CommunityHubPage';
 
 const NAV: { id: WorkerDashboardSection; label: string; icon: React.ReactNode }[] = [
   {
-    id: 'overview',
-    label: 'Overview',
+    id: 'community',
+    label: 'Community',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-        <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+        <line x1="8" y1="6" x2="21" y2="6" />
+        <line x1="8" y1="12" x2="21" y2="12" />
+        <line x1="8" y1="18" x2="21" y2="18" />
+        <line x1="3" y1="6" x2="3.01" y2="6" />
+        <line x1="3" y1="12" x2="3.01" y2="12" />
+        <line x1="3" y1="18" x2="3.01" y2="18" />
+      </svg>
+    ),
+  },
+  {
+    id: 'chat',
+    label: 'Chat',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
   },
@@ -55,15 +69,6 @@ const NAV: { id: WorkerDashboardSection; label: string; icon: React.ReactNode }[
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="8" r="6" /><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
-      </svg>
-    ),
-  },
-  {
-    id: 'community',
-    label: 'Community',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
   },
@@ -194,6 +199,15 @@ const OverviewSection = () => {
       <div className="wd-section__header">
         <h1 className="wd-section__title">Good morning, {user?.first_name}</h1>
         <p className="wd-section__subtitle">{today}</p>
+      </div>
+
+      <div className="wd-mock-chat-callout" role="note">
+        <p className="wd-mock-chat-callout__title">Patient ↔ health worker demo chat</p>
+        <p className="wd-mock-chat-callout__text">
+          Patients use <strong>My Community</strong> to message health workers; you use <strong>Chat</strong> to message
+          patients only (demo list). Both flows call <code>/chat/mock/reply</code> for deterministic Nepali lines until
+          real messaging ships.
+        </p>
       </div>
 
       <div className="wd-stats-grid">
@@ -1036,7 +1050,7 @@ const CertificationsSection = () => {
 const WorkerDashboardPage = () => {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const [section, setSection] = useState<WorkerDashboardSection>('overview');
+  const [section, setSection] = useState<WorkerDashboardSection>('community');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const uploadPhotoMutation = useUploadWorkerPhoto();
 
@@ -1061,13 +1075,19 @@ const WorkerDashboardPage = () => {
   return (
     <div className="wd-shell">
       <aside className="wd-sidebar">
-        <div className="wd-sidebar__brand">
+        <button
+          type="button"
+          className={`wd-sidebar__brand wd-sidebar__brand--clickable${section === 'overview' ? ' wd-sidebar__brand--active' : ''}`}
+          onClick={() => setSection('overview')}
+          aria-label="Open profile overview"
+          aria-current={section === 'overview' ? 'page' : undefined}
+        >
           <div className="wd-sidebar__logo">N</div>
           <div>
             <p className="wd-sidebar__brand-name">NUS MindCare</p>
             <p className="wd-sidebar__brand-role">Health Worker Portal</p>
           </div>
-        </div>
+        </button>
 
         <nav className="wd-nav">
           {NAV.map((item) => (
@@ -1126,10 +1146,17 @@ const WorkerDashboardPage = () => {
               />
             </label>
 
-            <div className="wd-user-pill__info">
-              <p className="wd-user-pill__name">{user?.first_name} {user?.last_name}</p>
-              <p className="wd-user-pill__role">Health Worker</p>
-            </div>
+            <button
+              type="button"
+              className="wd-user-pill__overview-btn"
+              onClick={() => setSection('overview')}
+              aria-label="Open profile overview"
+            >
+              <span className="wd-user-pill__name">
+                {user?.first_name} {user?.last_name}
+              </span>
+              <span className="wd-user-pill__role">Health Worker</span>
+            </button>
           </div>
           <button type="button" className="wd-logout-btn" onClick={handleLogout}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1142,10 +1169,10 @@ const WorkerDashboardPage = () => {
       </aside>
 
       <main className="wd-main">
-        {section === 'overview'        && <OverviewSection />}
-        {section === 'patients'        && <PatientsSection />}
-        {section === 'meetings'        && <MeetingsSection />}
-        {section === 'certifications'  && <CertificationsSection />}
+        {section === 'overview' && <OverviewSection />}
+        {section === 'patients' && <PatientsSection />}
+        {section === 'meetings' && <MeetingsSection />}
+        {section === 'certifications' && <CertificationsSection />}
         {section === 'community' && (
           <div className="wd-section wd-section--wide">
             <div className="wd-section__header">
@@ -1153,6 +1180,11 @@ const WorkerDashboardPage = () => {
               <p className="wd-section__subtitle">Same feed your patients see — post, like and comment alongside them</p>
             </div>
             <CommunityPage />
+          </div>
+        )}
+        {section === 'chat' && (
+          <div className="wd-section wd-section--wide wd-section--flush-hub">
+            <CommunityHubPage variant="health_worker" />
           </div>
         )}
       </main>

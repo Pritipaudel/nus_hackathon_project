@@ -17,7 +17,25 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   isOwn: boolean;
+  /** Set when reply came from POST /chat/mock/reply (health worker thread). */
+  mockMatched?: boolean;
 }
+
+/** Exact strings supported by the backend mock Nepali chat API (copy into input). */
+export const NEPALI_MOCK_CHAT_SAMPLES: { label: string; text: string }[] = [
+  {
+    label: 'टाउको दुखाइ र निद्रा',
+    text: 'नमस्ते दाइ, केही दिनदेखि मलाई टाउको दुख्ने र निद्रा कम हुने समस्या छ।',
+  },
+  {
+    label: 'समुदायसँग कुरा',
+    text: 'आफ्नै समुदायका मानिससँग कुरा गर्दा मलाई धेरै सहज लाग्छ।',
+  },
+  {
+    label: 'खुसी र धन्यवाद',
+    text: 'धेरै धन्यवाद, म अहिले पहिले भन्दा धेरै खुसी छु।',
+  },
+];
 
 export interface RecommendedProgram {
   id: string;
@@ -41,6 +59,16 @@ export interface CommunityEngagement {
 
 export const COMMUNITY_MEMBERS: CommunityMember[] = [
   {
+    id: 'hw-priya',
+    username: 'Dr. Priya Nair',
+    avatar: 'PN',
+    photo: 'https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=80&q=80',
+    role: 'worker',
+    status: 'online',
+    joinedDaysAgo: 120,
+    category: 'GENERAL',
+  },
+  {
     id: 'm1',
     username: 'anonymous_4821',
     avatar: 'AN',
@@ -49,16 +77,6 @@ export const COMMUNITY_MEMBERS: CommunityMember[] = [
     status: 'online',
     joinedDaysAgo: 14,
     category: 'ANXIETY',
-  },
-  {
-    id: 'm2',
-    username: 'worker_nair',
-    avatar: 'WN',
-    photo: 'https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=80&q=80',
-    role: 'worker',
-    status: 'online',
-    joinedDaysAgo: 120,
-    category: 'GENERAL',
   },
   {
     id: 'm3',
@@ -131,11 +149,11 @@ export const MOCK_CHAT_MESSAGES: Record<string, ChatMessage[]> = {
       isOwn: false,
     },
   ],
-  m2: [
+  'hw-priya': [
     {
       id: 'c4',
-      senderId: 'm2',
-      senderName: 'worker_nair',
+      senderId: 'hw-priya',
+      senderName: 'Dr. Priya Nair',
       senderPhoto: 'https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=80&q=80',
       content: 'Hi, just checking in after your session last week. How has your sleep been?',
       timestamp: '2026-03-27T09:00:00Z',
@@ -151,8 +169,8 @@ export const MOCK_CHAT_MESSAGES: Record<string, ChatMessage[]> = {
     },
     {
       id: 'c6',
-      senderId: 'm2',
-      senderName: 'worker_nair',
+      senderId: 'hw-priya',
+      senderName: 'Dr. Priya Nair',
       senderPhoto: 'https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=80&q=80',
       content: 'Great to hear. Keep going — the first two weeks are the hardest. See you at our next session.',
       timestamp: '2026-03-27T09:17:00Z',
@@ -243,7 +261,7 @@ export const COMMUNITY_ENGAGEMENTS: CommunityEngagement[] = [
     memberCount: 18,
     trending: false,
     members: [
-      { id: 'm2', photo: 'https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=80&q=80', avatar: 'WN' },
+      { id: 'hw-priya', photo: 'https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=80&q=80', avatar: 'PN' },
       { id: 'm4', photo: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=80&q=80', avatar: 'AR' },
     ],
   },

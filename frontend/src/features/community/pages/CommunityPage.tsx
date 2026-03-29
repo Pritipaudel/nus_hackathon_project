@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
+import type { GetPostsParams } from '../api/communityApi';
 import {
   useCommunityPosts,
   useTrendingPosts,
@@ -54,8 +55,17 @@ const CommunityPage = () => {
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [localReactions, setLocalReactions] = useState<Record<string, 'UPVOTE' | null>>({});
 
-  const categoryParam = activeCategory !== 'ALL' ? activeCategory : undefined;
-  const { data: posts = [], isLoading } = useCommunityPosts({ category: categoryParam, limit: 30 });
+  const postsQueryParams = useMemo((): GetPostsParams => {
+    const p: GetPostsParams = { limit: 30 };
+    if (activeCategory !== 'ALL') p.category = activeCategory;
+    return p;
+  }, [activeCategory]);
+  const { data: rawPosts = [], isLoading } = useCommunityPosts(postsQueryParams);
+  const posts = useMemo(
+    () =>
+      [...rawPosts].sort((a, b) => Number(!!b.is_verified) - Number(!!a.is_verified)),
+    [rawPosts],
+  );
   const { data: trending = [] } = useTrendingPosts();
   const createPost = useCreatePost();
   const reactMutation = useReactToPost();
@@ -299,7 +309,7 @@ const CommunityPage = () => {
 
                     <p className="cp-post__content">{post.content}</p>
 
-                    {post.media_urls.length > 0 && (
+                    {post.media_urls.length > 0 && post.media_urls[0]?.url && (
                       <div className="cp-post__media">
                         <img src={post.media_urls[0].url} alt="post" className="cp-post__img" loading="lazy" />
                       </div>
